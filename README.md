@@ -47,4 +47,32 @@ Projeyi çalıştırmadan önce bu gereksinimleri kurduğunuzdan emin olun.
 
 - Model eğitildikten sonra, örnek bir kullanım aşağıdaki gibidir:
   
-  ![Logo](assets/images/logo.jpg)
+  ![Logo](assets/images/test.png)
+
+# Katkı Sağlama Kılavuzu
+
+Teşekkür ederiz ki projeme katkıda bulunmayı düşünüyorsunuz! Katkılarınız, projemizin gelişmesine yardımcı olacaktır.
+
+## Katkıda Bulunmaya Başlama
+
+1. Projeyi çılgınca çatallayın (fork) ve yerel bir kopya oluşturun.
+2. Yerel klonunuzu kurun ve projeyi çalıştırın.
+3. Değişikliklerinizi yapın ve yerel klonunuzda test edin.
+4. Değişikliklerinizi yerel klonunuzda tamamladıktan sonra, bu değişiklikleri çılgınca çatalınızda (fork) saklayın.
+5. GitHub üzerinden bir birleştirme isteği (pull request) açın.
+
+## Birleştirme İsteği (Pull Request)
+
+- Birleştirme isteği açarken, yaptığınız değişiklikleri açık ve anlaşılır bir şekilde açıklayın.
+- Birleştirme isteğinizle ilişkilendirmek için uygun etiketleri (labels) ekleyin.
+- Değişikliklerinizin geçerli olduğundan emin olmak için testler ekleyin ve mevcut testleri geçtiğinden emin olun.
+
+## İletişim
+
+Soru veya önerileriniz varsa, lütfen [ozdemirbatihan@gmail.com](mailto:ozdemirbatihan@gmail.com) adresi üzerinden benimle iletişime geçin.
+
+## Lisans
+
+Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır. Katkı sağlamadan önce lütfen lisansı okuyun.
+
+
