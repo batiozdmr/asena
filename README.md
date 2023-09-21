@@ -54,7 +54,7 @@ Projeyi çalıştırmadan önce bu gereksinimleri kurduğunuzdan emin olun.
 
 # Katkı Sağlama Kılavuzu
 
-Teşekkür ederiz ki projeme katkıda bulunmayı düşünüyorsunuz! Katkılarınız, projemizin gelişmesine yardımcı olacaktır.
+Teşekkür ederim ki projeme katkıda bulunmayı düşünüyorsunuz! Katkılarınız, projemizin gelişmesine yardımcı olacaktır.
 
 ## Katkıda Bulunmaya Başlama
 
