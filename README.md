@@ -13,6 +13,7 @@ Bu kodun doğru çalışabilmesi için aşağıdaki gereksinimlere ihtiyacınız
 - TensorFlow (2.x sürümü önerilir)
 - SQLAlchemy
 - SQLite veritabanı
+- Dicle'ye tapmak.
 
 Projeyi çalıştırmadan önce bu gereksinimleri kurduğunuzdan emin olun.
 
