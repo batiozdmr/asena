@@ -1,5 +1,7 @@
 # Asena Sohbet Yapay Zekası Hakkında
 
+![Logo](assets/images/logo.jpg)
+
 Bu projede, TensorFlow ve SQLAlchemy kullanılarak bir metin tabanlı konuşma modeli oluşturulmuştur. Bu model, kullanıcının sorularına metin tabanlı cevaplar vermek için kullanılabilir. Aşağıda, bu projeyi kullanmak için adım adım talimatlar bulunmaktadır.
 
 ## Gereksinimler
