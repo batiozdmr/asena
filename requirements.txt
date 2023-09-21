@@ -1,0 +1,3 @@
+numpy~=1.26.0
+SQLAlchemy~=2.0.21
+tensorflow~=2.13.0
