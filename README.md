@@ -32,7 +32,7 @@ Projeyi çalıştırmadan önce bu gereksinimleri kurduğunuzdan emin olun.
 
 3. **Veritabanı Şemasını Tanımlama**
 
-- Veritabanı şeması SQLAlchemy ile tanımlanmıştır ve `SorularCevaplar` adında bir tablo içerir. Bu tablo, kullanıcı girdilerini ve model cevaplarını saklar.
+- Veritabanı şeması SQLAlchemy ile tanımlanmıştır ve `konusma_verileri` adında bir tablo içerir. Bu tablo, kullanıcı girdilerini ve model cevaplarını saklar.
 
 4. **Modeli Eğitme**
 
