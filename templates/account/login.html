@@ -1,0 +1,114 @@
+{% load i18n static %}
+{% load account socialaccount %}
+{% load crispy_forms_tags %}
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{{ site_settings.favicon.url }}">
+    <title>{{ site_settings.text }}</title>
+    <link rel="stylesheet" href="{% static "assets/css/bundle.css" %}">
+    <link rel="stylesheet" href="{% static "assets/css/app.css" %}">
+</head>
+
+<body class="tyn-body">
+<div class="tyn-root">
+    <div class="tyn-content tyn-auth tyn-auth-centered">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-xl-4 col-lg-5 col-md-7 col-sm-9">
+                    <div class="my-3 text-center">
+                        <a class="tyn-logo tyn-logo-sm" href="/">
+                            <img src="{{ site_settings.logo.url }}" alt="">
+
+                        </a>
+                    </div>
+                    <div class="card border-0">
+                        <div class="p-4">
+                            <h3>{% trans "Giriş Yap" %}</h3>
+                            {{ form.errors }}
+                            <form method="POST">
+                                {% csrf_token %}
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label class="form-label" for="email-address">{% trans "Kullanıcı Adı" %}</label>
+                                            <div class="form-control-wrap">
+                                                <input type="text" class="form-control" id="email-address" name="login"
+                                                       placeholder="{% trans "Kullanıcı Adı" %}" required="" autofocus="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label class="form-label d-flex" for="password">{% trans "Şifre" %}
+                                                <a href="{% url 'account_reset_password' %}"
+                                                   class="link link-primary ms-auto">
+                                                    {% trans "Parolanızı mı unuttunuz?" %}
+                                                </a>
+                                            </label>
+                                            <div class="form-control-wrap">
+                                                <input type="password" class="form-control" id="password"
+                                                       name="password" placeholder="{% trans "Şifre" %}" required="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="id_remember">Beni Hatırla:</label> <input type="checkbox" name="remember" id="id_remember">
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-primary w-100" type="submit">{% trans "Giriş" %}</button>
+                                    </div>
+                                </div><!-- .row -->
+                            </form>
+                        </div>
+                    </div><!-- .card -->
+                    <div class="text-center mt-4">
+                        <p class="small">{% trans "Hesabınız yok mu?" %} <a
+                                href="{% url 'account_signup' %}">{% trans "Kayıt Ol" %}</a></p>
+                    </div>
+                </div><!-- .col -->
+            </div><!-- .row -->
+        </div><!-- .container -->
+    </div>
+</div>
+<script src="{% static "assets/js/bundle.js" %}"></script>
+<script src="{% static "assets/js/app.js" %}"></script>
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% if messages %}
+    {% for message in messages %}
+        {% if forloop.last %}
+            <script>
+                Swal.fire({
+                    position: 'top-right',
+                    icon: '{{ message.tags }}',
+                    title: '{{ message|safe }}',
+                    showConfirmButton: false,
+                    timer: 2500
+                })
+            </script>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+
+{% for error_field, error_message in form.errors.items %}
+    {% if forloop.last %}
+        <script>
+            Swal.fire({
+                position: 'top-right',
+                icon: 'warning',
+                title: '{{ error_message|striptags }}',
+                showConfirmButton: false,
+                timer: 2500
+            })
+        </script>
+    {% endif %}
+{% endfor %}
+
+</body>
+</html>

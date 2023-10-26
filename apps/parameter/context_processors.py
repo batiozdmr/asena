@@ -2,7 +2,6 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.utils.translation import get_language
 
-from apps.mainpage.models import MainPage
 from apps.parameter.models import Menu, SiteSettings
 from django.contrib.sitemaps import views as sitemap_views
 from django.contrib.sites.models import Site
@@ -16,12 +15,11 @@ from robots.models import Rule
 
 def site(request):
     site_settings = SiteSettings.objects.last()
-    main_page = MainPage.objects.last()
     urlObject = request.get_host()
     url = request.build_absolute_uri()
     path = request.path
 
-    return {'site_settings': site_settings, 'main_page': main_page, 'showURL': urlObject, 'URL': url, 'path': path, }
+    return {'site_settings': site_settings, 'showURL': urlObject, 'URL': url, 'path': path, }
 
 
 def menu(request):

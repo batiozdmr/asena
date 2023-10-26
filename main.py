@@ -149,7 +149,7 @@ def model_olustur(sorular, cevaplar):
 
     history = model.fit(x_train, y_train, epochs=750, verbose=2)
     egitim_grafik(history)
-    # model.save(model_dosyasi)
+    model.save(model_dosyasi)
     return model, x_train, y_train, max_soru_seq_len
 
 

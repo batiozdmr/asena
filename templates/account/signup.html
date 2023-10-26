@@ -1,0 +1,128 @@
+{% load i18n static %}
+{% load account socialaccount %}
+{% load crispy_forms_tags %}
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{{ site_settings.favicon.url }}">
+    <title>{{ site_settings.text }}</title>
+    <link rel="stylesheet" href="{% static "assets/css/bundle.css" %}">
+    <link rel="stylesheet" href="{% static "assets/css/app.css" %}">
+</head>
+
+<body class="tyn-body">
+<div class="tyn-root">
+    <div class="tyn-content tyn-auth tyn-auth-centered">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-xl-6 col-lg-8">
+                    <div class="mb-3 text-center">
+                        <a class="tyn-logo tyn-logo-sm" href="/">
+                            <img src="{{ site_settings.logo.url }}" alt="">
+                        </a>
+                    </div>
+                    <div class="card border-0">
+                        <div class="p-4">
+                            <h3>{% trans "Kayıt Ol" %}</h3>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <div class="row g-3 gx-4">
+                                <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="form-label" for="email-address">{% trans "Kullanıcı Adı" %}</label>
+                                            <div class="form-control-wrap">
+                                                <input type="text" class="form-control" id="email-address" name="username"
+                                                       placeholder="{% trans "Kullanıcı Adı" %}" required="" autofocus="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="form-label" for="email-address">{% trans "E Posta" %}</label>
+                                            <div class="form-control-wrap">
+                                                <input type="email" class="form-control" id="email-address" name="email"
+                                                       placeholder="{% trans "E Posta" %}" required="" autofocus="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="form-label" for="password">{% trans "Şifre" %}</label>
+                                            <div class="form-control-wrap">
+                                                <input type="password" class="form-control" id="password" name="password1"
+                                                       placeholder="{% trans "Şifre" %}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="form-label" for="repeat-password">{% trans "Şifre Tekrar" %}</label>
+                                            <div class="form-control-wrap">
+                                                <input type="password" class="form-control" id="repeat-password" name="password2"
+                                                       placeholder="{% trans "Şifre Tekrar" %}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="muteFor"
+                                                   id="privacy-term-agree" required>
+                                            <label class="form-check-label" for="privacy-term-agree"> {% blocktrans %}<a href="#">Gizlilik politikasını</a> kabul ediyorum şartlar{% endblocktrans %}</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-primary w-100" type="submit">{% trans "Kayıt Ol" %}</button>
+                                    </div>
+                                </div><!-- .row -->
+                            </form>
+                        </div>
+                    </div><!-- .card -->
+                    <div class="text-center mt-4">
+                        <p class="small">{% trans "Zaten hesabınız var mı?" %} <a href="{% url 'account_login' %}">{% trans "Giriş Yap" %}</a></p>
+                    </div>
+                </div>
+            </div><!-- .row -->
+        </div><!-- .container -->
+    </div>
+</div>
+<script src="{% static "assets/js/bundle.js" %}"></script>
+<script src="{% static "assets/js/app.js" %}"></script>
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% if messages %}
+    {% for message in messages %}
+        {% if forloop.last %}
+            <script>
+                Swal.fire({
+                    position: 'top-right',
+                    icon: '{{ message.tags }}',
+                    title: '{{ message|safe }}',
+                    showConfirmButton: false,
+                    timer: 2500
+                })
+            </script>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+
+{% for error_field, error_message in form.errors.items %}
+    {% if forloop.last %}
+        <script>
+            Swal.fire({
+                position: 'top-right',
+                icon: 'warning',
+                title: '{{ error_message|striptags }}',
+                showConfirmButton: false,
+                timer: 2500
+            })
+        </script>
+    {% endif %}
+{% endfor %}
+
+</body>
+</html>

@@ -25,7 +25,10 @@ SECRET_KEY = 'django-insecure-=ywc^04ll6i^ig))$r80+#mo-pl&)^pzjzm0hf36a7ipveybk0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
+CORS_ALLOWED_ORIGINS = [
+    "http://ai.localhost:8000",
+]
 
 # Application definition
 
@@ -52,6 +55,7 @@ THIRD_PARTY_APPS = [
     'storages',
     'collectfast',
     'corsheaders',
+    'robots',
     'modeltranslation',
     'django_hosts',
     'rosetta',
@@ -59,13 +63,18 @@ THIRD_PARTY_APPS = [
 
 APPS = [
     'apps.parameter',
+    'apps.profile',
 ]
 
 AI_APPS = [
-
+    'apps.ai.chat',
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + APPS + AI_APPS
+API_APPS = [
+    'apps.api',
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + APPS + AI_APPS + API_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -76,6 +85,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_hosts.middleware.HostsRequestMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 DEFAULT_HOST = 'main'
@@ -93,6 +103,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.parameter.context_processors.site',
             ],
         },
     },
@@ -131,13 +142,21 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'tr-Tr'
+gettext = lambda s: s
+LANGUAGES = (
+    ('tr', gettext('Türkçe')),
+    ('en', gettext('English')),
+)
+MODELTRANSLATION_LANGUAGES = ('tr', 'en')
+ROSETTA_SHOW_AT_ADMIN_PANEL = True
 
-TIME_ZONE = 'UTC'
+USE_TZ = True
+TIME_ZONE = 'Europe/Istanbul'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_L10N = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -165,7 +184,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_AUTHENTICATION_METHOD = 'username'
 PERMISSION_DENIED_PAGE_URL = '/403/'
 CKEDITOR_UPLOAD_PATH = "uploads/"
 CKEDITOR_JQUERY_URL = os.path.join(STATIC_URL, 'assets/plugins/jquery.min.js')

@@ -41,8 +41,8 @@ class SiteSettings(AuditMixin, SeoModel):
 
     default_profile_image = models.ImageField(upload_to=userDirectoryPath, null=True,
                                               verbose_name=_('Default Profil Resmi'))
-    default_banner_image = models.ImageField(upload_to=userDirectoryPath, null=True,
-                                             verbose_name=_('Default Banner Resmi'))
+    bot_icon = models.ImageField(upload_to=userDirectoryPath, null=True,
+                                 verbose_name=_('Bot Resmi'))
 
     @property
     def logo_url(self):
