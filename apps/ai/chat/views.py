@@ -3,6 +3,8 @@ from django.shortcuts import render
 
 from apps.ai.chat.models import Questions
 
+import openai
+
 
 @login_required
 def index(request):
@@ -11,3 +13,9 @@ def index(request):
         'questions': questions
     }
     return render(request, "ai/index.html", context)
+
+
+@login_required
+def edu(request):
+
+    return render(request, "ai/index.html", {})

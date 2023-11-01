@@ -30,6 +30,39 @@ session = Session()
 
 tokenizer = Tokenizer()
 
+model_config = {
+    "rnn_unit": [1024],
+    "rnn_cell": "lstm",
+    "encoder_rnn_type": "unidirectional",
+    "attention_mechanism": None,
+    "attention_size": None,
+    "dense_layers": [4096],
+    "dense_activation": "sigmoid",
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "dropout_keep_prob_dense": 0.8,
+    "dropout_keep_prob_rnn_input": 0.8,
+    "dropout_keep_prob_rnn_output": 0.8,
+    "dropout_keep_prob_rnn_state": 0.8,
+    "bucket_use_padding": False,
+    "bucket_padding_input": [3, 5, 10, 15, 20],
+    "bucket_padding_output": [1, 2, 3, 5, 10, 15, 21],
+    "train_epochs": 3,
+    "train_steps": 2500,
+    "train_batch_size": 512,
+    "log_per_step_percent": 10,
+    "embedding_use_pretrained": False,
+    "embedding_pretrained_path": "model/cc.en.300",
+    "embedding_type": "fasttext",
+    "embedding_size": 300,
+    "embedding_negative_sample": 128,
+    "vocab_limit": 0,
+    "vocab_special_token": ["<start>", "<end>", "<pad>", "<unk>"],
+    "ngram": 3,
+    "reverse_input_sequence": True,
+    "seq2seq_loss": True
+}
+
 
 def egitim_verilerini_cek():
     data_list = session.query(SorularCevaplar).all()
@@ -59,8 +92,9 @@ def yeni_soru_ekle(soru_metni):
 
 def create_model(tokenizer, max_seq_len):
     model = tf.keras.Sequential()
-    model.add(
-        tf.keras.layers.Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=256, input_length=max_seq_len))
+
+    model.add(tf.keras.layers.Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=64,
+                                        input_length=max_soru_seq_len))
     model.add(tf.keras.layers.LSTM(512, return_sequences=True))
     model.add(tf.keras.layers.LSTM(512, return_sequences=True))  # Daha fazla LSTM katmanı
     model.add(

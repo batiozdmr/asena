@@ -3,6 +3,7 @@ from django.db import models
 from mptt.models import MPTTModel
 
 from apps.common.mixins import AuditMixin
+from apps.common.oneTextField import OneTextField
 
 
 # Create your models here.
@@ -16,3 +17,17 @@ class Questions(AuditMixin, MPTTModel):
 
     def __str__(self):
         return str(self.text)
+
+
+class EducationQuestionsAnswersType(OneTextField):
+    def __str__(self):
+        return str(self.text)
+
+
+class EducationQuestionsAnswers(AuditMixin):
+    question = models.TextField(verbose_name='Soru')
+    answer = models.TextField(verbose_name='Cevap')
+    type = models.ForeignKey(EducationQuestionsAnswersType, on_delete=models.CASCADE, verbose_name='Türü')
+
+    def __str__(self):
+        return str(self.question)

@@ -1,94 +1,151 @@
+import difflib
+
+import openai
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import os
 
 import tensorflow as tf
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 import numpy as np
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
+import matplotlib.pyplot as plt
 
-engine = create_engine('sqlite:///konusma_veritabani.db')
-
-# Tabloyu tanımlayın (örnek olarak "konusma_verileri" tablosu)
-Base = declarative_base()
-
-
-class SorularCevaplar(Base):
-    __tablename__ = 'konusma_verileri'
-    id = Column(Integer, primary_key=True)
-    kullanici_girdisi = Column(String)
-    model_cevabi = Column(String)
-    egitime_dahil = Column(Boolean, default=True)
-
+from apps.ai.chat.models import EducationQuestionsAnswers
+from translate import Translator
 
 tokenizer = Tokenizer()
-Session = sessionmaker(bind=engine)
-session = Session()
+
+model_config = {
+    'mode': "script",  # training, live, update, chatgpt
+    'epochs': 3,
+    'LSTM': 1,
+}
 
 
-def egitim_verilerini_cek():
-    data_list = session.query(SorularCevaplar).all()
-    filtered_sorular = []
-    tokenizer_sorular = []
-    filtered_cevaplar = []
-    tokenizer_cevaplar = []
+def fetch_training_data():
+    data_list = EducationQuestionsAnswers.objects.filter(question__isnull=False, answer__isnull=False)
+    filtered_questions = []
+    tokenizer_questions = []
+    filtered_answers = []
+    tokenizer_answers = []
     for data in data_list:
-        if data.kullanici_girdisi != "" and data.model_cevabi != "":
-            if data.egitime_dahil:
-                filtered_sorular.append(data.kullanici_girdisi)
-                filtered_cevaplar.append(data.model_cevabi)
-                data.egitime_dahil = True
-            tokenizer_sorular.append(data.kullanici_girdisi)
-            tokenizer_cevaplar.append(data.model_cevabi)
-    tokenizer.fit_on_texts(tokenizer_sorular + tokenizer_cevaplar)
-    session.commit()
-    return filtered_sorular, filtered_cevaplar
+        data_question = data.question.lower()
+        data_question = data_question.replace('[^\w\s]', '')
+
+        data_answer = data.answer.lower()
+        data_answer = data_answer.replace('[^\w\s]', '')
+        if data.type_id == 2:
+            filtered_questions.append(data_question)
+            filtered_answers.append(data_answer)
+        if not data.type_id == 3:
+            tokenizer_questions.append(data_question)
+            tokenizer_answers.append(data_answer)
+    tokenizer.fit_on_texts(tokenizer_questions + tokenizer_answers)
+    return filtered_questions, filtered_answers
 
 
 def model_create():
-    current_file = "egitilmis_model.keras"
-    if not os.path.exists(current_file):
-        print("Data Ve Model Mevcut Değil.")
-    sorular, cevaplar = egitim_verilerini_cek()
-    sorular_seq = tokenizer.texts_to_sequences(sorular)
-    cevaplar_seq = tokenizer.texts_to_sequences(cevaplar)
+    model_dosyasi = "data/asena.keras"
+    questions, answers = fetch_training_data()
 
-    # Girdi ve çıkış verilerini hazırlama
-    max_soru_seq_len = max(len(seq) for seq in sorular_seq)
-    x_train = pad_sequences(sorular_seq, maxlen=max_soru_seq_len, padding='post')
+    tokenizer.fit_on_texts(questions + answers)
+    questions_seq = tokenizer.texts_to_sequences(questions)
+    answers_seq = tokenizer.texts_to_sequences(answers)
 
-    # Çıkış verilerini uygun hale getirme
-    cevaplar_seq_padded = pad_sequences(cevaplar_seq, maxlen=max_soru_seq_len, padding='post')
-    y_train = np.zeros_like(cevaplar_seq_padded)
-    y_train[:, :-1] = cevaplar_seq_padded[:, 1:]
+    max_seq_length = max(max(len(seq) for seq in questions_seq), max(len(seq) for seq in answers_seq))
 
-    model = tf.keras.models.load_model(current_file)
+    x_train = pad_sequences(questions_seq, maxlen=max_seq_length, padding='post')
+    answers_seq_padded = pad_sequences(answers_seq, maxlen=max_seq_length, padding='post')
+
+    y_train = np.zeros_like(answers_seq_padded)
+    y_train[:, :-1] = answers_seq_padded[:, 1:]
+
+    if os.path.exists(model_dosyasi) and model_config['mode'] == "live":
+        model = tf.keras.models.load_model(model_dosyasi)
+        return model, x_train, y_train, max_seq_length
+    elif os.path.exists(model_dosyasi) and model_config['mode'] == "training":
+        os.remove(model_dosyasi)
+    elif model_config['mode'] == "training":
+        pass
+    elif model_config['mode'] == "training":
+        quit("Update Modu Henüz Aktif Değil.")
+    else:
+        quit("Yanlış mod seçimi!!")
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=64,
+                                        input_length=max_seq_length))
+    for i in range(model_config['LSTM']):
+        model.add(tf.keras.layers.LSTM(64, return_sequences=True))
+    model.add(tf.keras.layers.Dropout(0.5))
+    model.add(tf.keras.layers.Dense(len(tokenizer.word_index) + 1, activation='softmax'))
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     model.summary()
-    return model, x_train, y_train, max_soru_seq_len
+    history = model.fit(x_train, y_train, epochs=model_config['epochs'], verbose=2)
+    education_graphics(history)
+    model.save(model_dosyasi)
+    return model, x_train, y_train, max_seq_length
+
+
+def education_graphics(history):
+    train_loss = history.history['loss']
+    train_accuracy = history.history['accuracy']
+    epochs = range(1, len(train_loss) + 1)
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss, 'bo-', label='Eğitim Kaybı')
+    plt.title('Eğitim ve Doğrulama Kayıpları')
+    plt.xlabel('Epok')
+    plt.ylabel('Kayıp')
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, train_accuracy, 'bo-', label='Eğitim Doğruluğu')
+    plt.title('Eğitim ve Doğrulama Doğrulukları')
+    plt.xlabel('Epok')
+    plt.ylabel('Doğruluk')
+    plt.legend()
+    plt.show()
+    return
+
+
+def find_closest_answer(question, question_answer):
+    close_questions = difflib.get_close_matches(question, question_answer.keys())
+    if close_questions:
+        closest_question = close_questions[0]
+        return question_answer[closest_question]
+    else:
+        return "Üzgünüm, bu soruya bir cevap bulamadım."
+
+
+def question_save(question, answer):
+    return
 
 
 @csrf_exempt
 def asena(request):
-    model, x_train, y_train, max_question_seq_len = model_create()
-    question = request.POST.get("question")
-    question_seq = tokenizer.texts_to_sequences([question])
-    if not question_seq or not question_seq[0]:
-        last_answer = "Bu soru için bir cevap bulunamıyor. Başka bir konuda yardımcı olmak isterim."
-    else:
-        question_seq = pad_sequences(question_seq, maxlen=25, padding='post')
-        answer_seq = model.predict(question_seq)
-        answer = ""
-        for seq in answer_seq[0]:
-            kelime_indexi = np.argmax(seq)
-            kelime = tokenizer.index_word.get(kelime_indexi, "")
-            if kelime:
-                answer += kelime + " "
-        if answer:
-            last_answer = answer
+    question = request.POST.get("question", "")
+    print(question)
+    if not model_config['mode'] == "script":
+        model, x_train, y_train, max_seq_length = model_create()
+        question_seq = tokenizer.texts_to_sequences([question])
+        if not question_seq or not question_seq[0]:
+            generated_text = "Bu soru için bir cevap bulunamıyor. Daha fazla veri eklemeye devam edin."
         else:
-            last_answer = "Bunu henüz öğrenemedim. Beni geliştirmeye devam ederseniz öğrenebilirim."
-    response_data = {'content': last_answer}
+            question_seq = pad_sequences(question_seq, maxlen=max_seq_length, padding='post')
+            answer_seq = model.predict(question_seq)
+            answer = ""
+            for seq in answer_seq[0]:
+                word_index = np.argmax(seq)
+                word = tokenizer.index_word.get(word_index, "")
+                if word:
+                    answer += word + " "
+            if answer:
+                generated_text = answer
+            else:
+                generated_text = "Bunu henüz öğrenemedim. Beni geliştirmeye devam ederseniz öğrenebilirim."
+    else:
+        question_answer = {item.question: item.answer for item in
+                           EducationQuestionsAnswers.objects.filter(question__isnull=False, answer__isnull=False)}
+        generated_text = find_closest_answer(question, question_answer)
+    response_data = {'content': generated_text}
     return JsonResponse(response_data, safe=False)

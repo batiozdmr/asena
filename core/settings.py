@@ -28,6 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOWED_ORIGINS = [
     "http://ai.localhost:8000",
+    "http://localhost:8000",
 ]
 
 # Application definition
@@ -59,6 +60,7 @@ THIRD_PARTY_APPS = [
     'modeltranslation',
     'django_hosts',
     'rosetta',
+    'rest_framework',
 ]
 
 APPS = [
@@ -191,7 +193,7 @@ CKEDITOR_JQUERY_URL = os.path.join(STATIC_URL, 'assets/plugins/jquery.min.js')
 MODELTRANSLATION_DEFAULT_LANGUAGE = 'tr'
 DATE_INPUT_FORMATS = ['%d/%m/%Y']
 LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
-
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 CKEDITOR_ALLOW_NONIMAGE_FILES = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -273,3 +275,9 @@ SOCIALACCOUNT_PROVIDERS = {
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = True
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+}

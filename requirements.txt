@@ -19,3 +19,7 @@ django-mptt==0.13.4
 django-currentuser==0.5.3
 django-robots==4.0
 djangorestframework~=3.14.0
+keras~=2.14.0
+openai~=0.28.1
+ipython~=8.16.1
+nltk~=3.8.1

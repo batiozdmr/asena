@@ -6,4 +6,5 @@ app_name = "chat"
 
 urlpatterns = [
     path('', index, name='index'),
+    path('edu/', edu, name='edu'),
 ]
