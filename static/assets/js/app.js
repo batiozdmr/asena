@@ -323,7 +323,6 @@
                 }
 
 
-
                 function botSendMessage() {
 
                     $.ajax({

@@ -8,11 +8,18 @@ from apps.common.mixins import AuditMixin
 # Create your models here.
 
 
-class Questions(AuditMixin, MPTTModel):
+class Question(AuditMixin, MPTTModel):
     parent = models.ForeignKey("self", null=True, blank=True, related_name="children", on_delete=models.CASCADE,
                                verbose_name='Üst Soru')
     text = models.TextField()
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.text)
+
+
+class AiData(models.Model):
+    text = models.TextField()
 
     def __str__(self):
         return str(self.text)

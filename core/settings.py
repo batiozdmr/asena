@@ -27,7 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOWED_ORIGINS = [
-    "http://ai.localhost:8000",
+    "http://chat.localhost:8000",
 ]
 
 # Application definition
@@ -67,7 +67,7 @@ APPS = [
 ]
 
 AI_APPS = [
-    'apps.ai.chat',
+    'apps.chat',
 ]
 
 API_APPS = [

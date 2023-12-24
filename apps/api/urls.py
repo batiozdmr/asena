@@ -1,7 +1,7 @@
 from django.urls import path
 
-from apps.api.views import asena
+from apps.api.views import chat
 
 urlpatterns = [
-    path('asena/', asena, name='asena'),
+    path('asena/', chat, name='chat'),
 ]

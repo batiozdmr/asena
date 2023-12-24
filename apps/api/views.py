@@ -1,94 +1,134 @@
+import nltk
+from nltk.corpus import stopwords
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import os
-
-import tensorflow as tf
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+from keras.layers import Embedding, LSTM, Dense
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 import numpy as np
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
+import tensorflow as tf
+from selenium import webdriver
+import string
+from selenium.webdriver.common.by import By
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 
-engine = create_engine('sqlite:///konusma_veritabani.db')
-
-# Tabloyu tanımlayın (örnek olarak "konusma_verileri" tablosu)
-Base = declarative_base()
-
-
-class SorularCevaplar(Base):
-    __tablename__ = 'konusma_verileri'
-    id = Column(Integer, primary_key=True)
-    kullanici_girdisi = Column(String)
-    model_cevabi = Column(String)
-    egitime_dahil = Column(Boolean, default=True)
-
+from apps.chat.models import AiData
 
 tokenizer = Tokenizer()
-Session = sessionmaker(bind=engine)
-session = Session()
+
+TRAIN = True
 
 
-def egitim_verilerini_cek():
-    data_list = session.query(SorularCevaplar).all()
-    filtered_sorular = []
-    tokenizer_sorular = []
-    filtered_cevaplar = []
-    tokenizer_cevaplar = []
-    for data in data_list:
-        if data.kullanici_girdisi != "" and data.model_cevabi != "":
-            if data.egitime_dahil:
-                filtered_sorular.append(data.kullanici_girdisi)
-                filtered_cevaplar.append(data.model_cevabi)
-                data.egitime_dahil = True
-            tokenizer_sorular.append(data.kullanici_girdisi)
-            tokenizer_cevaplar.append(data.model_cevabi)
-    tokenizer.fit_on_texts(tokenizer_sorular + tokenizer_cevaplar)
-    session.commit()
-    return filtered_sorular, filtered_cevaplar
+def preprocess_text(text):
+    text = ''.join([char for char in text if not char.isdigit()])
+    special_characters = string.punctuation + '“”‘’()[]{}<>–—'
+    text = ''.join([char for char in text if char not in special_characters])
+
+    stop_words = set(stopwords.words('english'))
+    words = nltk.word_tokenize(text)
+    filtered_words = [word.lower() for word in words if word.lower() not in stop_words]
+
+    return ' '.join(filtered_words)
 
 
-def model_create():
-    current_file = "egitilmis_model.keras"
-    if not os.path.exists(current_file):
-        print("Data Ve Model Mevcut Değil.")
-    sorular, cevaplar = egitim_verilerini_cek()
-    sorular_seq = tokenizer.texts_to_sequences(sorular)
-    cevaplar_seq = tokenizer.texts_to_sequences(cevaplar)
+def create_data_entries():
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options)
 
-    # Girdi ve çıkış verilerini hazırlama
-    max_soru_seq_len = max(len(seq) for seq in sorular_seq)
-    x_train = pad_sequences(sorular_seq, maxlen=max_soru_seq_len, padding='post')
+    for _ in range(849):
+        url = "https://tr.wikipedia.org/wiki/%C3%96zel:Rastgele"
+        driver.get(url)
+        div_element = driver.find_element(By.CLASS_NAME, "mw-content-ltr")
+        p_tags = div_element.find_elements(By.TAG_NAME, "p")
+        text = " ".join(p_tag.text for p_tag in p_tags)
+        AiData.objects.create(text=preprocess_text(text))
 
-    # Çıkış verilerini uygun hale getirme
-    cevaplar_seq_padded = pad_sequences(cevaplar_seq, maxlen=max_soru_seq_len, padding='post')
-    y_train = np.zeros_like(cevaplar_seq_padded)
-    y_train[:, :-1] = cevaplar_seq_padded[:, 1:]
+    driver.quit()
+    return True
 
-    model = tf.keras.models.load_model(current_file)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    model.summary()
-    return model, x_train, y_train, max_soru_seq_len
+
+def build_model(X, algorithm):
+    if algorithm == 'LSTM':
+        model = Sequential([
+            Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=128, input_length=X.shape[1]),
+            LSTM(256, return_sequences=True),
+            Dense(len(tokenizer.word_index) + 1, activation='softmax')
+        ])
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    elif algorithm == 'NaiveBayes':
+        model = MultinomialNB()
+    elif algorithm == 'LogisticRegression':
+        model = LogisticRegression(max_iter=1000)
+    elif algorithm == 'SVM':
+        model = SVC()
+    elif algorithm == 'RandomForest':
+        model = RandomForestClassifier()
+    elif algorithm == 'KNeighbors':
+        model = KNeighborsClassifier()
+    elif algorithm == 'DecisionTree':
+        model = DecisionTreeClassifier()
+    else:
+        raise ValueError(f"Unsupported algorithm: {algorithm}")
+    return model
+
+
+def train_model(X, y, algorithm):
+    model = build_model(X, algorithm)
+    model.fit(X, y, epochs=10, verbose=2)
+    model.save_weights('models/asena.h5')
+    return model
 
 
 @csrf_exempt
-def asena(request):
-    model, x_train, y_train, max_question_seq_len = model_create()
+def chat(request):
+    model = tf.keras.models.load_model('models/asena_lstm.h5')
+    if TRAIN:
+        algorithms = ['LSTM', 'NaiveBayes', 'LogisticRegression', 'SVM', 'RandomForest', 'KNeighbors', 'DecisionTree']
+        data_entries = AiData.objects.all()
+        texts = [entry.text for entry in data_entries]
+
+        for algorithm in algorithms:
+            print(f"Training model with {algorithm}...")
+            if algorithm == 'LSTM':
+                tokenizer.fit_on_texts(texts)
+                sequences = tokenizer.texts_to_sequences(texts)
+
+                X = pad_sequences(sequences, padding='post')
+
+                y = np.zeros_like(X)
+                y[:, :-1] = X[:, 1:]
+
+                model = train_model(X, y, algorithm)
+            else:
+                vectorizer = CountVectorizer()
+                X = vectorizer.fit_transform(texts)
+                tfidf_transformer = TfidfTransformer()
+                X = tfidf_transformer.fit_transform(X)
+
+                model = train_model(X, np.array([entry.label for entry in data_entries]), algorithm)
+
     question = request.POST.get("question")
+    data_entries = AiData.objects.all()
+    texts = [entry.text for entry in data_entries]
+
+    tokenizer.fit_on_texts(texts)
     question_seq = tokenizer.texts_to_sequences([question])
-    if not question_seq or not question_seq[0]:
-        last_answer = "Bu soru için bir cevap bulunamıyor. Başka bir konuda yardımcı olmak isterim."
-    else:
-        question_seq = pad_sequences(question_seq, maxlen=25, padding='post')
-        answer_seq = model.predict(question_seq)
-        answer = ""
-        for seq in answer_seq[0]:
-            kelime_indexi = np.argmax(seq)
-            kelime = tokenizer.index_word.get(kelime_indexi, "")
-            if kelime:
-                answer += kelime + " "
-        if answer:
-            last_answer = answer
-        else:
-            last_answer = "Bunu henüz öğrenemedim. Beni geliştirmeye devam ederseniz öğrenebilirim."
+    question_seq = pad_sequences(question_seq, padding='post')
+
+    answer_seq = model.predict(question_seq)
+    answer = " ".join(tokenizer.index_word.get(np.argmax(seq), "") for seq in answer_seq[0])
+
+    last_answer = answer if answer else "Bunu henüz öğrenemedim, Sizlere başka bir konuda yardımcı olmak isterim."
+
     response_data = {'content': last_answer}
-    return JsonResponse(response_data, safe=False)
+    return JsonResponse(response_data)
