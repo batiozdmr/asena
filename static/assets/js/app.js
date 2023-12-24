@@ -283,7 +283,7 @@
                 }
 
                 function userSendMessage() {
-                    if (isBotWriting) { // Bot yazıyorsa işlemi durdur
+                    if (isBotWriting) { // Bot yazÄ±yorsa iÅŸlemi durdur
                         return;
                     }
 
@@ -310,7 +310,6 @@
                     userQaItem.appendChild(userQaMessage);
                     chatReply.appendChild(userQaItem);
                     userQaMessage.innerHTML = chatInput.innerText.replace(/\n/g, "<br>");
-                    chatInput.innerHTML = "";
                     toggleUserSendButtonState(false);
 
                     botSendMessage();
@@ -329,7 +328,7 @@
                         url: "http://api.localhost:8000/asena/",
                         method: "POST",
                         data: {
-                            'question': "Naber",
+                            'question': chatInput.innerHTML,
                         },
                         success: function (jsonData) {
                             let botMessage = jsonData.content
@@ -357,9 +356,9 @@
                                 if (currentIndex < botMessage.length) {
                                     botQaMessage.textContent += botMessage[currentIndex];
                                     currentIndex++;
-                                    setTimeout(writeMessage, 15); // 50 milisaniye aralıklarla bir sonraki harfi ekler
+                                    setTimeout(writeMessage, 15); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
                                 } else {
-                                    isBotWriting = false; // Bot yazmayı bitirdi
+                                    isBotWriting = false; // Bot yazmayÄ± bitirdi
                                 }
                             }
 
@@ -392,9 +391,9 @@
                                 if (currentIndex < botMessage.length) {
                                     botQaMessage.textContent += botMessage[currentIndex];
                                     currentIndex++;
-                                    setTimeout(writeMessage, 10); // 50 milisaniye aralıklarla bir sonraki harfi ekler
+                                    setTimeout(writeMessage, 10); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
                                 } else {
-                                    isBotWriting = false; // Bot yazmayı bitirdi
+                                    isBotWriting = false; // Bot yazmayÄ± bitirdi
                                 }
                             }
 
@@ -402,6 +401,7 @@
 
                         }
                     });
+                    chatInput.innerHTML = ""
                 }
             }
         }
