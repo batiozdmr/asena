@@ -1,7 +1,5 @@
 from datetime import datetime, date
 
-from autoslug.settings import slugify
-from ckeditor_uploader.fields import RichTextUploadingField
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
@@ -42,7 +40,6 @@ class Profile(AuditMixin):
     province = models.ForeignKey(Province, null=True, blank=True, on_delete=models.CASCADE, verbose_name=_('İl'))
     district = models.ForeignKey(District, null=True, blank=True, on_delete=models.CASCADE, verbose_name=_('İlçe'))
 
-    slug = models.SlugField(max_length=500, null=True, blank=True, editable=False)
 
     verification_code = models.IntegerField(blank=True, null=True)
     verification_code_expiration = models.DateTimeField(blank=True, null=True)
@@ -51,9 +48,7 @@ class Profile(AuditMixin):
     def __str__(self):
         return self.user.username
 
-    def save(self, *args, **kwargs):
-        self.slug = slugify(str(int(self.user.id) + 1000))
-        super(Profile, self).save(*args, **kwargs)
+
 
     def get_full_name(self):
         """

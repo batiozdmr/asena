@@ -3,7 +3,6 @@ from django.shortcuts import render
 
 from apps.chat.models import Question
 
-import openai
 
 
 @login_required

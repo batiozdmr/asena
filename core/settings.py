@@ -52,10 +52,8 @@ THIRD_PARTY_APPS = [
     'crispy_forms',
     'ckeditor',
     'ckeditor_uploader',
-    'storages',
     'collectfast',
     'corsheaders',
-    'robots',
     'modeltranslation',
     'django_hosts',
     'rosetta',
@@ -86,6 +84,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_hosts.middleware.HostsRequestMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 DEFAULT_HOST = 'main'

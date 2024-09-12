@@ -286,6 +286,9 @@
                     if (isBotWriting) { // Bot yazÄ±yorsa iÅŸlemi durdur
                         return;
                     }
+                    if (chatInput.innerText === "") { // Mesaj İçeriği Boşsa İşlemi Durdur
+                        return;
+                    }
 
                     isBotWriting = true;
                     welcome_content.style.display = "none"
@@ -323,85 +326,87 @@
 
 
                 function botSendMessage() {
+                    if (chatInput.innerHTML) {
+                        $.ajax({
+                            url: "http://api.localhost:8000/asena/",
+                            method: "POST",
+                            data: {
+                                'question': chatInput.innerHTML,
+                            },
+                            success: function (jsonData) {
+                                let botMessage = jsonData.content
+                                scroll()
+                                let botQaItem = document.createElement("div");
+                                botQaItem.className = "tyn-qa-item";
 
-                    $.ajax({
-                        url: "http://api.localhost:8000/asena/",
-                        method: "POST",
-                        data: {
-                            'question': chatInput.innerHTML,
-                        },
-                        success: function (jsonData) {
-                            let botMessage = jsonData.content
-                            scroll()
-                            let botQaItem = document.createElement("div");
-                            botQaItem.className = "tyn-qa-item";
+                                let botQaAvatar = document.createElement("div");
+                                botQaAvatar.className = "tyn-qa-avatar";
 
-                            let botQaAvatar = document.createElement("div");
-                            botQaAvatar.className = "tyn-qa-avatar";
+                                let botAvatarImg = document.createElement("div");
+                                botAvatarImg.className = "tyn-media tyn-size-md";
+                                botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
 
-                            let botAvatarImg = document.createElement("div");
-                            botAvatarImg.className = "tyn-media tyn-size-md";
-                            botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
+                                botQaAvatar.appendChild(botAvatarImg);
 
-                            botQaAvatar.appendChild(botAvatarImg);
+                                let botQaMessage = document.createElement("div");
+                                botQaMessage.className = "tyn-qa-message tyn-text-block";
+                                botQaItem.appendChild(botQaAvatar);
+                                botQaItem.appendChild(botQaMessage);
+                                chatReply.appendChild(botQaItem);
+                                let currentIndex = 0;
 
-                            let botQaMessage = document.createElement("div");
-                            botQaMessage.className = "tyn-qa-message tyn-text-block";
-                            botQaItem.appendChild(botQaAvatar);
-                            botQaItem.appendChild(botQaMessage);
-                            chatReply.appendChild(botQaItem);
-                            let currentIndex = 0;
-
-                            function writeMessage() {
-                                if (currentIndex < botMessage.length) {
-                                    botQaMessage.textContent += botMessage[currentIndex];
-                                    currentIndex++;
-                                    setTimeout(writeMessage, 15); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
-                                } else {
-                                    isBotWriting = false; // Bot yazmayÄ± bitirdi
+                                function writeMessage() {
+                                    if (currentIndex < botMessage.length) {
+                                        botQaMessage.textContent += botMessage[currentIndex];
+                                        currentIndex++;
+                                        setTimeout(writeMessage, 15); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
+                                    } else {
+                                        isBotWriting = false; // Bot yazmayÄ± bitirdi
+                                    }
                                 }
-                            }
 
-                            writeMessage();
-                        },
-                        error: function (data) {
-                            chatInput.innerHTML = "";
-                            let botQaItem = document.createElement("div");
-                            botQaItem.className = "tyn-qa-item";
-                            let botQaAvatar = document.createElement("div");
-                            botQaAvatar.className = "tyn-qa-avatar";
+                                writeMessage();
+                            },
+                            error: function (data) {
+                                chatInput.innerHTML = "";
+                                let botQaItem = document.createElement("div");
+                                botQaItem.className = "tyn-qa-item";
+                                let botQaAvatar = document.createElement("div");
+                                botQaAvatar.className = "tyn-qa-avatar";
 
-                            let botAvatarImg = document.createElement("div");
-                            botAvatarImg.className = "tyn-media tyn-size-md";
-                            botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
+                                let botAvatarImg = document.createElement("div");
+                                botAvatarImg.className = "tyn-media tyn-size-md";
+                                botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
 
-                            botQaAvatar.appendChild(botAvatarImg);
+                                botQaAvatar.appendChild(botAvatarImg);
 
-                            let botQaMessage = document.createElement("div");
-                            botQaMessage.className = "tyn-qa-message tyn-text-block";
-                            botQaItem.appendChild(botQaAvatar);
-                            botQaItem.appendChild(botQaMessage);
-                            chatReply.appendChild(botQaItem);
-                            let botMessage = "Şuanda geçici olarak sizlere cevap veremiyorum daha sonra tekrar deneyiniz.";
+                                let botQaMessage = document.createElement("div");
+                                botQaMessage.className = "tyn-qa-message tyn-text-block";
+                                botQaItem.appendChild(botQaAvatar);
+                                botQaItem.appendChild(botQaMessage);
+                                chatReply.appendChild(botQaItem);
+                                let botMessage = "Şuanda geçici olarak sizlere cevap veremiyorum daha sonra tekrar deneyiniz.";
 
-                            let currentIndex = 0;
-                            scroll()
+                                let currentIndex = 0;
+                                scroll()
 
-                            function writeMessage() {
-                                if (currentIndex < botMessage.length) {
-                                    botQaMessage.textContent += botMessage[currentIndex];
-                                    currentIndex++;
-                                    setTimeout(writeMessage, 10); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
-                                } else {
-                                    isBotWriting = false; // Bot yazmayÄ± bitirdi
+                                function writeMessage() {
+                                    if (currentIndex < botMessage.length) {
+                                        botQaMessage.textContent += botMessage[currentIndex];
+                                        currentIndex++;
+                                        setTimeout(writeMessage, 10); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
+                                    } else {
+                                        isBotWriting = false; // Bot yazmayÄ± bitirdi
+                                    }
                                 }
+
+                                writeMessage();
+
                             }
+                        });
+                        chatInput.innerHTML = ""
+                    }
 
-                            writeMessage();
-
-                        }
-                    });
-                    chatInput.innerHTML = ""
                 }
             }
         }

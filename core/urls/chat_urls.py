@@ -1,4 +1,3 @@
-from allauth.account.views import LoginView
 from django.conf import settings
 from django.conf.urls.static import static
 
