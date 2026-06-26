@@ -1,0 +1,68 @@
+{% extends "ai/base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block content %}
+<div class="tyn-content tyn-content-full-height tyn-chatbot tyn-chatbot-page">
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>{% trans "Asena Hafızası" %}</h2>
+                <p class="text-muted mb-0">{% trans "Asena'nın sizin hakkınızda bildiği bilgiler." %}</p>
+            </div>
+            <a href="{% url 'chat:index' %}" class="btn btn-primary">{% trans "Sohbete Dön" %}</a>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">{% trans "Yeni Bilgi Ekle" %}</h5>
+                <form method="post" action="{% url 'chat:memory_add' %}">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <select name="category" class="form-select">
+                                <option value="fact">{% trans "Bilgi" %}</option>
+                                <option value="preference">{% trans "Tercih" %}</option>
+                                <option value="goal">{% trans "Hedef" %}</option>
+                                <option value="habit">{% trans "Alışkanlık" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <input type="text" name="content" class="form-control"
+                                   placeholder="{% trans 'Örn: Ben vejetaryenim' %}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-success w-100">{% trans "Ekle" %}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{% trans "Kayıtlı Bilgiler" %}</h5>
+                {% if memories %}
+                    <ul class="list-group list-group-flush">
+                        {% for memory in memories %}
+                            <li class="list-group-item d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-secondary me-2">{{ memory.get_category_display }}</span>
+                                    {{ memory.content }}
+                                    <div class="small text-muted mt-1">{{ memory.updated_at }}</div>
+                                </div>
+                                <form method="post" action="{% url 'chat:memory_delete' memory.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Sil" %}</button>
+                                </form>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">{% trans "Henüz kayıtlı bilgi yok. Sohbet ettikçe Asena sizi tanımaya başlayacak." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

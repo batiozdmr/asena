@@ -17,6 +17,7 @@ urlpatterns = []
 urlpatterns += [
     path('super/user/admin/', admin.site.urls),
     path('', include(('apps.chat.urls'), namespace='chat')),
+    path('api/', include(('apps.api.urls'))),
     path('accounts/', include("allauth.urls")),
     path('ckeditor-secret/', include('ckeditor_uploader.urls')),
     path("i18n/", include("django.conf.urls.i18n")),

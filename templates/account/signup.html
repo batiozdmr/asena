@@ -28,7 +28,7 @@
                     <div class="card border-0">
                         <div class="p-4">
                             <h3>{% trans "Kayıt Ol" %}</h3>
-                            <form method="POST">
+                            <form method="POST" action="{% url 'account_signup' %}">
                                 {% csrf_token %}
                                 <div class="row g-3 gx-4">
                                 <div class="col-sm-6">

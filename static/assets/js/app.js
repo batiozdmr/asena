@@ -261,14 +261,136 @@
                 let chatImage = document.querySelector('#profileImage');
                 let welcome_content = document.getElementById("welcome_content");
                 let chat_content = document.getElementById("chat_content");
-                let csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-                let isBotWriting = false; // Bayrak ekledik
+                let csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                let csrfToken = csrfInput ? csrfInput.value : '';
+                let sessionInput = document.getElementById('currentSessionId');
+                let chatRoot = document.getElementById('asenaChatRoot');
+                let apiBaseUrl = (chatRoot && chatRoot.dataset.apiUrl)
+                    ? chatRoot.dataset.apiUrl
+                    : window.location.origin;
+
+                function apiUrl(path) {
+                    return apiBaseUrl + path;
+                }
+                let isBotWriting = false;
+
+                function getSessionId() {
+                    return sessionInput ? sessionInput.value : '';
+                }
+
+                function setSessionId(sessionId) {
+                    if (sessionInput) {
+                        sessionInput.value = sessionId || '';
+                    }
+                }
+
+                function getUserAvatarHtml() {
+                    let src = chatImage && chatImage.src ? chatImage.src : '';
+                    return `<img src="${src}" alt="">`;
+                }
+
+                function scroll() {
+                    if (!chatBody) {
+                        return;
+                    }
+                    let simpleBodyEl = document.querySelector('#tynBotBody');
+                    if (!simpleBodyEl || typeof SimpleBar === 'undefined') {
+                        return;
+                    }
+                    let simpleBody = SimpleBar.instances.get(simpleBodyEl);
+                    if (!simpleBody) {
+                        return;
+                    }
+                    let content = chatBody.querySelector('.simplebar-content > *');
+                    if (!content) {
+                        return;
+                    }
+                    let height = content.scrollHeight;
+                    simpleBody.getScrollElement().scrollTop = height;
+                }
+
+                function getBotAvatarHtml() {
+                    let botAvatar = document.querySelector('.tyn-appbar .tyn-media img');
+                    let src = botAvatar ? botAvatar.src : '';
+                    return `<img src="${src}" alt="">`;
+                }
+
+                console.log('[Asena] API:', apiBaseUrl);
+
+                function sendChatRequest(userText, onSuccess, onError) {
+                    let body = new URLSearchParams();
+                    body.append('question', userText);
+                    body.append('session_id', getSessionId());
+
+                    console.log('[Asena] send:', userText);
+
+                    fetch(apiUrl('/api/asena/'), {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: body.toString(),
+                    }).then(function (response) {
+                        return response.json().then(function (data) {
+                            if (!response.ok) {
+                                throw {status: response.status, data: data};
+                            }
+                            onSuccess(data);
+                        });
+                    }).catch(function (err) {
+                        onError(err);
+                    });
+                }
+
+                function appendMessage(role, messageText, avatarHtml) {
+                    let qaItem = document.createElement("div");
+                    qaItem.className = "tyn-qa-item";
+
+                    let qaAvatar = document.createElement("div");
+                    qaAvatar.className = "tyn-qa-avatar";
+
+                    let avatarImg = document.createElement("div");
+                    avatarImg.className = "tyn-media tyn-size-md";
+                    avatarImg.innerHTML = avatarHtml;
+
+                    qaAvatar.appendChild(avatarImg);
+
+                    let qaMessage = document.createElement("div");
+                    qaMessage.className = "tyn-qa-message tyn-text-block";
+                    qaItem.appendChild(qaAvatar);
+                    qaItem.appendChild(qaMessage);
+                    chatReply.appendChild(qaItem);
+
+                    if (role === 'user') {
+                        qaMessage.innerHTML = messageText.replace(/\n/g, "<br>");
+                        return null;
+                    }
+
+                    return qaMessage;
+                }
+
+                function typeBotMessage(botQaMessage, botMessage, onComplete) {
+                    let currentIndex = 0;
+
+                    function writeMessage() {
+                        if (currentIndex < botMessage.length) {
+                            botQaMessage.textContent += botMessage[currentIndex];
+                            currentIndex++;
+                            setTimeout(writeMessage, 15);
+                        } else if (onComplete) {
+                            onComplete();
+                        }
+                    }
+
+                    writeMessage();
+                }
 
                 chatSend && chatSend.addEventListener("click", function (event) {
                     event.preventDefault();
                     userSendMessage();
                 });
-
 
                 chatInput && chatInput.addEventListener("keypress", function (event) {
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -277,136 +399,98 @@
                     }
                 });
 
+                let newSessionBtn = document.getElementById('newSessionBtn');
+                newSessionBtn && newSessionBtn.addEventListener('click', function () {
+                    setSessionId('');
+                    chatReply.innerHTML = '';
+                    welcome_content.style.display = "block";
+                    chat_content.style.display = "none";
+                });
+
+                document.querySelectorAll('.js-session-item').forEach(function (item) {
+                    item.addEventListener('click', function () {
+                        let sessionId = item.dataset.sessionId;
+                        if (!sessionId) {
+                            return;
+                        }
+                        setSessionId(sessionId);
+                        chatReply.innerHTML = '';
+                        welcome_content.style.display = "none";
+                        chat_content.style.display = "flex";
+
+                        fetch(apiUrl("/api/sessions/" + sessionId + "/messages/"), {
+                            method: 'GET',
+                            credentials: 'same-origin',
+                        }).then(function (response) {
+                            return response.json();
+                        }).then(function (data) {
+                            data.messages.forEach(function (message) {
+                                if (message.role === 'user') {
+                                    appendMessage('user', message.content, getUserAvatarHtml());
+                                } else {
+                                    let botNode = appendMessage('assistant', message.content, getBotAvatarHtml());
+                                    if (botNode) {
+                                        botNode.textContent = message.content;
+                                    }
+                                }
+                            });
+                            scroll();
+                        }).catch(function (err) {
+                            console.error('[Asena] session load error:', err);
+                        });
+                    });
+                });
+
                 function toggleUserSendButtonState(disabled) {
                     let userSend = document.getElementById("tynBotSend");
                     userSend.disabled = disabled;
                 }
 
                 function userSendMessage() {
-                    if (isBotWriting) { // Bot yazÄ±yorsa iÅŸlemi durdur
+                    if (isBotWriting) {
                         return;
                     }
-                    if (chatInput.innerText === "") { // Mesaj İçeriği Boşsa İşlemi Durdur
+                    if (chatInput.innerText === "") {
                         return;
                     }
 
                     isBotWriting = true;
-                    welcome_content.style.display = "none"
-                    chat_content.style.display = "flex"
-                    let getImage = chatImage.src;
+                    welcome_content.style.display = "none";
+                    chat_content.style.display = "flex";
+                    let userText = chatInput.innerText;
                     toggleUserSendButtonState(true);
-                    let userQaItem = document.createElement("div");
-                    userQaItem.className = "tyn-qa-item";
-
-                    let userQaAvatar = document.createElement("div");
-                    userQaAvatar.className = "tyn-qa-avatar";
-
-                    let avatarImg = document.createElement("div");
-                    avatarImg.className = "tyn-media tyn-size-md";
-                    avatarImg.innerHTML = `<img src="${getImage}" alt="">`;
-
-                    userQaAvatar.appendChild(avatarImg);
-
-                    let userQaMessage = document.createElement("div");
-                    userQaMessage.className = "tyn-qa-message tyn-text-block";
-                    userQaItem.appendChild(userQaAvatar);
-                    userQaItem.appendChild(userQaMessage);
-                    chatReply.appendChild(userQaItem);
-                    userQaMessage.innerHTML = chatInput.innerText.replace(/\n/g, "<br>");
+                    appendMessage('user', userText, getUserAvatarHtml());
                     toggleUserSendButtonState(false);
-
-                    botSendMessage();
+                    botSendMessage(userText);
                 }
 
-                function scroll() {
-                    let simpleBody = SimpleBar.instances.get(document.querySelector('#tynBotBody'));
-                    let height = chatBody.querySelector('.simplebar-content > *').scrollHeight;
-                    simpleBody.getScrollElement().scrollTop = height;
-                }
+                function botSendMessage(userText) {
+                    chatInput.innerHTML = "";
 
-
-                function botSendMessage() {
-                    if (chatInput.innerHTML) {
-                        $.ajax({
-                            url: "http://api.localhost:8000/asena/",
-                            method: "POST",
-                            data: {
-                                'question': chatInput.innerHTML,
-                            },
-                            success: function (jsonData) {
-                                let botMessage = jsonData.content
-                                scroll()
-                                let botQaItem = document.createElement("div");
-                                botQaItem.className = "tyn-qa-item";
-
-                                let botQaAvatar = document.createElement("div");
-                                botQaAvatar.className = "tyn-qa-avatar";
-
-                                let botAvatarImg = document.createElement("div");
-                                botAvatarImg.className = "tyn-media tyn-size-md";
-                                botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
-
-                                botQaAvatar.appendChild(botAvatarImg);
-
-                                let botQaMessage = document.createElement("div");
-                                botQaMessage.className = "tyn-qa-message tyn-text-block";
-                                botQaItem.appendChild(botQaAvatar);
-                                botQaItem.appendChild(botQaMessage);
-                                chatReply.appendChild(botQaItem);
-                                let currentIndex = 0;
-
-                                function writeMessage() {
-                                    if (currentIndex < botMessage.length) {
-                                        botQaMessage.textContent += botMessage[currentIndex];
-                                        currentIndex++;
-                                        setTimeout(writeMessage, 15); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
-                                    } else {
-                                        isBotWriting = false; // Bot yazmayÄ± bitirdi
-                                    }
-                                }
-
-                                writeMessage();
-                            },
-                            error: function (data) {
-                                chatInput.innerHTML = "";
-                                let botQaItem = document.createElement("div");
-                                botQaItem.className = "tyn-qa-item";
-                                let botQaAvatar = document.createElement("div");
-                                botQaAvatar.className = "tyn-qa-avatar";
-
-                                let botAvatarImg = document.createElement("div");
-                                botAvatarImg.className = "tyn-media tyn-size-md";
-                                botAvatarImg.innerHTML = '<img src="http://ai.localhost:8000/media/upload/userFormUpload/f0c8bow3HpQmUsHPChfGWPZgZxxsJ9qB.png" alt="">';
-
-                                botQaAvatar.appendChild(botAvatarImg);
-
-                                let botQaMessage = document.createElement("div");
-                                botQaMessage.className = "tyn-qa-message tyn-text-block";
-                                botQaItem.appendChild(botQaAvatar);
-                                botQaItem.appendChild(botQaMessage);
-                                chatReply.appendChild(botQaItem);
-                                let botMessage = "Şuanda geçici olarak sizlere cevap veremiyorum daha sonra tekrar deneyiniz.";
-
-                                let currentIndex = 0;
-                                scroll()
-
-                                function writeMessage() {
-                                    if (currentIndex < botMessage.length) {
-                                        botQaMessage.textContent += botMessage[currentIndex];
-                                        currentIndex++;
-                                        setTimeout(writeMessage, 10); // 50 milisaniye aralÄ±klarla bir sonraki harfi ekler
-                                    } else {
-                                        isBotWriting = false; // Bot yazmayÄ± bitirdi
-                                    }
-                                }
-
-                                writeMessage();
-
-                            }
+                    sendChatRequest(userText, function (jsonData) {
+                        let botMessage = jsonData.content;
+                        if (jsonData.session_id) {
+                            setSessionId(jsonData.session_id);
+                        }
+                        scroll();
+                        let botQaMessage = appendMessage('assistant', botMessage, getBotAvatarHtml());
+                        typeBotMessage(botQaMessage, botMessage, function () {
+                            isBotWriting = false;
                         });
-                        chatInput.innerHTML = ""
-                    }
-
+                    }, function (err) {
+                        let botMessage = "Şu anda geçici olarak cevap veremiyorum, lütfen daha sonra tekrar deneyiniz.";
+                        if (err.data && err.data.error) {
+                            botMessage = err.data.error;
+                        } else if (err.status === 401) {
+                            botMessage = "Oturumunuz sona ermiş. Lütfen tekrar giriş yapın.";
+                        }
+                        console.error("[Asena] API error:", err);
+                        let botQaMessage = appendMessage('assistant', '', getBotAvatarHtml());
+                        scroll();
+                        typeBotMessage(botQaMessage, botMessage, function () {
+                            isBotWriting = false;
+                        });
+                    });
                 }
             }
         }

@@ -3,7 +3,7 @@ from datetime import datetime, date
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from apps.common.fileUpload.userPath import userDirectoryPath
 from apps.common.fileUpload.validate import validateFileExtensionPhoto

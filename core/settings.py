@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+import logging
 import os
 from pathlib import Path
 
@@ -52,7 +52,6 @@ THIRD_PARTY_APPS = [
     'crispy_forms',
     'ckeditor',
     'ckeditor_uploader',
-    'collectfast',
     'corsheaders',
     'modeltranslation',
     'django_hosts',
@@ -60,6 +59,7 @@ THIRD_PARTY_APPS = [
 ]
 
 APPS = [
+    'apps.common.apps.CommonConfig',
     'apps.parameter',
     'apps.profile',
 ]
@@ -72,19 +72,25 @@ API_APPS = [
     'apps.api',
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + APPS + AI_APPS + API_APPS
+MEMORY_APPS = [
+    'apps.memory',
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + APPS + AI_APPS + API_APPS + MEMORY_APPS
 
 MIDDLEWARE = [
+    'django_hosts.middleware.HostsRequestMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_currentuser.middleware.ThreadLocalUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_hosts.middleware.HostsRequestMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'django_hosts.middleware.HostsResponseMiddleware',
 ]
 
 DEFAULT_HOST = 'main'
@@ -176,14 +182,22 @@ MEDIA_ROOT = os.path.join(PROJECT_ROOT, '../media')
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGIN_URL = '/accounts/login/'
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 SITE_ID = 1
-ACCOUNT_EMAIL_REQUIRED = True
+
+ACCOUNT_LOGIN_METHODS = {'username'}
+ACCOUNT_SIGNUP_FIELDS = ['username*', 'email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'username'
+ACCOUNT_SESSION_REMEMBER = True
 PERMISSION_DENIED_PAGE_URL = '/403/'
 CKEDITOR_UPLOAD_PATH = "uploads/"
 CKEDITOR_JQUERY_URL = os.path.join(STATIC_URL, 'assets/plugins/jquery.min.js')
@@ -194,6 +208,9 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
 CKEDITOR_ALLOW_NONIMAGE_FILES = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CKEditor 4 yalnızca admin panelindeki copyright alanlarında kullanılıyor.
+SILENCED_SYSTEM_CHECKS = ['ckeditor.W001']
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -269,6 +286,124 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = not DEBUG
+
+# Subdomain API/chat için .localhost; 127.0.0.1 ile girişte cookie kaybolmasın diye DEBUG'da None.
+if DEBUG and os.environ.get('ASENA_COOKIE_DOMAIN'):
+    SESSION_COOKIE_DOMAIN = os.environ.get('ASENA_COOKIE_DOMAIN')
+    CSRF_COOKIE_DOMAIN = os.environ.get('ASENA_COOKIE_DOMAIN')
+elif DEBUG:
+    SESSION_COOKIE_DOMAIN = None
+    CSRF_COOKIE_DOMAIN = None
+else:
+    SESSION_COOKIE_DOMAIN = '.localhost'
+    CSRF_COOKIE_DOMAIN = '.localhost'
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://chat.localhost:8000',
+    'http://api.localhost:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+# Asena yerel AI ayarları
+ASENA_MODEL_PATH = os.environ.get('ASENA_MODEL_PATH', 'meta-llama/Llama-3.2-3B-Instruct')
+ASENA_LORA_PATH = os.environ.get('ASENA_LORA_PATH', str(BASE_DIR / 'llama3-lora-finetuned'))
+ASENA_EMBEDDING_MODEL = os.environ.get(
+    'ASENA_EMBEDDING_MODEL',
+    'paraphrase-multilingual-MiniLM-L12-v2',
+)
+ASENA_MAX_CONTEXT_MESSAGES = 20
+ASENA_MAX_NEW_TOKENS = 512
+ASENA_CHROMA_PATH = BASE_DIR / 'data' / 'chroma'
+ASENA_USE_MOCK_MODEL = os.environ.get('ASENA_USE_MOCK_MODEL', '1') == '1'
+
+class Ignore403Filter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        if 'Forbidden (Permission denied)' in msg:
+            return False
+        if 'django_ratelimit.exceptions.Ratelimited' in msg:
+            return False
+        return True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(message)s'
+        },
+        'asena': {
+            'format': '%(asctime)s %(message)s',
+            'datefmt': '%H:%M:%S',
+        },
+    },
+    'filters': {
+        'ignore_403': {
+            '()': Ignore403Filter,
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_403'],
+        },
+        'asena_console': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stderr',
+            'formatter': 'asena',
+        },
+        'null': {
+            'class': 'logging.NullHandler',
+        },
+    },
+    'loggers': {
+        'asena': {
+            'handlers': ['asena_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['null'],
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',    # 403, 404, 500 hepsi console'a gelir, filter devrede
+            'propagate': False,
+        },
+        'django_ratelimit': {
+            'handlers': ['null'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'sarz': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'level': 'DEBUG',
+            'handlers': ['null'],
+            'propagate': False,
+        },
+        'django.template': {
+            'level': 'DEBUG',
+            'handlers': ['null'],
+            'propagate': False
+        },
+        'django.utils.autoreload': {
+            'level': 'INFO',
+            'handlers': ['null'],
+            'propagate': False,
+        },
+    }
+}

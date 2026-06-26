@@ -5,23 +5,36 @@
 
 {% block content %}
 
-    <div class="tyn-content tyn-content-full-height tyn-chatbot tyn-chatbot-page has-aside-base">
+    <div class="tyn-content tyn-content-full-height tyn-chatbot tyn-chatbot-page has-aside-base"
+         id="asenaChatRoot"
+         data-api-url="">
         <div class="tyn-aside tyn-aside-base">
             <div class="tyn-aside-head">
                 <div class="tyn-aside-head-text">
-                    <h3 class="tyn-aside-title tyn-title">Chat Archive</h3>
-                    <span class="tyn-subtext">200+ Conversations </span>
+                    <h3 class="tyn-aside-title tyn-title">{% trans "Konuşma Arşivi" %}</h3>
+                    <span class="tyn-subtext">{{ sessions|length }} {% trans "Konuşma" %}</span>
                 </div>
                 <div class="tyn-aside-head-tools">
                     <ul class="tyn-list-inline gap gap-3">
-                        <li><a class="btn btn-icon btn-light btn-md btn-pill" href="chat-bot-welcome.html">
+                        <li>
+                            <a class="btn btn-icon btn-light btn-md btn-pill" href="{% url 'chat:memory' %}" title="{% trans 'Hafıza' %}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                     class="bi bi-brain" viewBox="0 0 16 16">
+                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                    <path d="M8 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6 5a3 3 0 1 1 6 0 3 3 0 0 1-6 0zm-1 5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 5 11v-.5z"/>
+                                </svg>
+                            </a>
+                        </li>
+                        <li>
+                            <button class="btn btn-icon btn-light btn-md btn-pill" id="newSessionBtn" type="button">
                             <!-- plus-lg -->
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                  class="bi bi-plus-lg" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd"
                                       d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"></path>
                             </svg>
-                        </a></li>
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div><!-- .tyn-aside-head -->
@@ -35,9 +48,10 @@
                             <div class="simplebar-content-wrapper" tabindex="0" role="region"
                                  aria-label="scrollable content" style="height: 100%; overflow: hidden;">
                                 <div class="simplebar-content" style="padding: 0px;">
-                                    <ul class="tyn-aside-list">
-                                        {% for question in questions %}
-                                            <li class="tyn-aside-item tyn-aside-item-bubbly  js-toggle-main">
+                                    <ul class="tyn-aside-list" id="sessionList">
+                                        {% for session in sessions %}
+                                            <li class="tyn-aside-item tyn-aside-item-bubbly js-session-item"
+                                                data-session-id="{{ session.id }}">
                                                 <div class="tyn-media-group">
                                                     <div class="tyn-media tyn-size-sm">
                                                         <!-- chat-quote-fill -->
@@ -48,7 +62,7 @@
                                                         </svg>
                                                     </div>
                                                     <div class="tyn-media-col">
-                                                        <div class="content">{{ question.text }}</div>
+                                                        <div class="content">{{ session.title|default:"Yeni konuşma" }}</div>
                                                     </div>
                                                     <div class="tyn-media-option">
                                                         <ul class="tyn-media-option-list">
@@ -67,6 +81,12 @@
                                                             </li>
                                                         </ul>
                                                     </div>
+                                                </div>
+                                            </li>
+                                        {% empty %}
+                                            <li class="tyn-aside-item">
+                                                <div class="tyn-media-col p-3 text-muted small">
+                                                    {% trans "Henüz konuşma yok." %}
                                                 </div>
                                             </li>
                                         {% endfor %}
@@ -264,6 +284,7 @@
                     <div class="ps-3 pe-4 py-3 bg-white mb-4 rounded-3">
                         <div class="tyn-chat-form-enter">
                             {% csrf_token %}
+                            <input type="hidden" id="currentSessionId" value="">
                             <div class="tyn-chat-form-input" id="tynBotInput" placeholder="text"
                                  contenteditable=""></div>
                             <ul class="tyn-list-inline me-n2 my-1">

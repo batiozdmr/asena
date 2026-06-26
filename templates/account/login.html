@@ -29,8 +29,23 @@
                     <div class="card border-0">
                         <div class="p-4">
                             <h3>{% trans "Giriş Yap" %}</h3>
-                            {{ form.errors }}
-                            <form method="POST">
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {% for error in form.non_field_errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.errors %}
+                                <div class="alert alert-warning">
+                                    {% for field, errors in form.errors.items %}
+                                        {% for error in errors %}
+                                            <div><strong>{{ field }}:</strong> {{ error }}</div>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <form method="POST" action="{% url 'account_login' %}">
                                 {% csrf_token %}
                                 <div class="row g-3">
                                     <div class="col-12">

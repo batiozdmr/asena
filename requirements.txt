@@ -1,22 +1,28 @@
 Django==4.2.10
-django-allauth
-django-crispy-forms==1.14.0
-django-ckeditor==6.2.0
-django-cors-headers==3.11.0
-django-modeltranslation==0.17.5
-django-mptt==0.13.4
-django-hosts==5.2
-django-robots==4.0
-django-currentuser==0.5.3
+django-allauth>=65.1.0,<66.0.0
+django-crispy-forms>=1.14.0
+django-ckeditor>=6.7.0
+django-cors-headers>=4.3.0
+django-modeltranslation>=0.19.17
+django-mptt>=0.14.0
+django-hosts>=7.0.0
+django-robots>=4.0
+django-currentuser>=0.10.0
 
-jwt
-whitenoise==6.0.0
-Pillow==10.1.0
-Collectfast==2.2.0
+PyJWT
+whitenoise>=6.0.0
+Pillow>=10.4.0
 
-django-rosetta==0.9.4
-Pillow==10.4.0
-transformers==4.12.0
-sentencepiece==0.1.96
-torch==1.10.0
-tensorflow==2.7.0
+django-rosetta>=0.9.9
+
+setuptools>=70,<82
+
+torch>=2.1.0
+transformers>=4.44.0
+accelerate>=0.27.0
+bitsandbytes>=0.43.0; platform_system != "Windows"
+sentence-transformers>=2.7.0
+chromadb>=0.5.0
+peft>=0.11.0
+datasets>=2.19.0
+trl>=0.9.0

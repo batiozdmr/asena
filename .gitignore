@@ -129,5 +129,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+
+data/
+llama3-lora-finetuned/
+training/checkpoints/
+
 .core/settings.py
 core/settings.py
