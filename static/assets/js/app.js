@@ -1,630 +1,533 @@
 !(function (TynApp) {
-        "use strict";
+    "use strict";
 
-        TynApp.ActiveLink = function (selector, active) {
-            let elm = document.querySelectorAll(selector);
-            let currentURL = document.location.href,
-                removeHash = currentURL.substring(0, (currentURL.indexOf("#") == -1) ? currentURL.length : currentURL.indexOf("#")),
-                removeQuery = removeHash.substring(0, (removeHash.indexOf("?") == -1) ? removeHash.length : removeHash.indexOf("?")),
-                fileName = removeQuery;
+    /* ==============================================
+       THEME
+    =============================================== */
+    TynApp.Theme = function () {
+        var KEY = 'asena-theme';
 
-            elm && elm.forEach(function (item) {
-                var selfLink = item.getAttribute('href');
-                if (fileName.match(selfLink)) {
-                    item.parentElement.classList.add(...active);
-                } else {
-                    item.parentElement.classList.remove(...active);
-                }
-            })
+        function apply(dark) {
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            localStorage.setItem(KEY, dark ? 'dark' : 'light');
+            // sync all theme toggles
+            document.querySelectorAll('#themeToggle, #themeToggle2').forEach(function (el) {
+                el.checked = dark;
+            });
         }
 
-        TynApp.Appbar = function () {
-            let elm = document.querySelector('.tyn-appbar');
-            if (elm) {
-                document.querySelector('.tyn-root').style.setProperty('--appbar-height', `${elm.offsetHeight}px`)
+        var saved = localStorage.getItem(KEY);
+        apply(saved === 'dark');
+
+        document.querySelectorAll('#themeToggle, #themeToggle2').forEach(function (el) {
+            el.addEventListener('change', function () { apply(el.checked); });
+        });
+    };
+
+    /* ==============================================
+       TOAST
+    =============================================== */
+    TynApp.Toast = function (msg, type) {
+        var container = document.getElementById('toastContainer');
+        if (!container) return;
+        var t = document.createElement('div');
+        t.className = 'asena-toast';
+        var accent = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
+        t.style.borderLeft = '3px solid ' + accent;
+        t.textContent = msg;
+        container.appendChild(t);
+        setTimeout(function () {
+            t.style.opacity = '0';
+            t.style.transition = 'opacity 0.3s';
+            setTimeout(function () { t.remove(); }, 320);
+        }, 3200);
+    };
+
+    /* ==============================================
+       USER DROPDOWN MENU
+    =============================================== */
+    TynApp.UserMenu = function () {
+        var btn      = document.getElementById('userMenuBtn');
+        var dropdown = document.getElementById('userDropdown');
+        var logoutBtn  = document.getElementById('logoutBtn');
+        var logoutForm = document.getElementById('logoutForm');
+
+        if (!btn || !dropdown) return;
+
+        function close() { dropdown.classList.remove('open'); }
+        function open()  { dropdown.classList.add('open'); }
+        function toggle() { dropdown.classList.contains('open') ? close() : open(); }
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggle();
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!btn.contains(e.target) && !dropdown.contains(e.target)) close();
+        });
+
+        if (logoutBtn && logoutForm) {
+            logoutBtn.addEventListener('click', function () {
+                if (window.confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+                    logoutForm.submit();
+                }
+            });
+        }
+    };
+
+    /* ==============================================
+       MOBILE SIDEBAR
+    =============================================== */
+    TynApp.MobileSidebar = function () {
+        var toggle  = document.getElementById('sidebarToggle');
+        var sidebar = document.getElementById('appSidebar');
+        var overlay = document.getElementById('sidebarOverlay');
+        if (!sidebar) return;
+
+        function openSidebar()  { sidebar.classList.add('open'); if (overlay) overlay.classList.add('show'); }
+        function closeSidebar() { sidebar.classList.remove('open'); if (overlay) overlay.classList.remove('show'); }
+
+        if (toggle)  toggle.addEventListener('click', openSidebar);
+        if (overlay) overlay.addEventListener('click', closeSidebar);
+
+        // close on session click (mobile)
+        sidebar.addEventListener('click', function (e) {
+            if (window.innerWidth <= 768 && e.target.closest('.js-session-item')) {
+                closeSidebar();
             }
-        }
+        });
+    };
 
+    /* ==============================================
+       CHAT
+    =============================================== */
+    TynApp.Chat = {
+        botsend: function () {
+            var sendBtn      = document.getElementById('tynBotSend');
+            var inputEl      = document.getElementById('tynBotInput');
+            var messagesEl   = document.getElementById('chatMessages');
+            var welcomeEl    = document.getElementById('welcome_content');
+            var sessionInput = document.getElementById('currentSessionId');
+            var profileImg   = document.getElementById('profileImage');
+            var sessionList  = document.getElementById('sessionList');
+            var newSessionBtn = document.getElementById('newSessionBtn');
+            var csrfInput    = document.querySelector('input[name="csrfmiddlewaretoken"]');
 
-        TynApp.Chat = {
-            reply: {
-                search: function () {
-                    let elm = document.querySelectorAll('.js-toggle-chat-search');
-                    if (elm) {
-                        elm.forEach(item => {
-                            item.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                document.getElementById('tynChatSearch').classList.toggle('active');
-                            })
-                        })
+            if (!sendBtn || !inputEl || !messagesEl) return;
+
+            var isBusy = false;
+            var csrf   = csrfInput ? csrfInput.value : '';
+
+            /* ---- helpers ---- */
+            function getSession()  { return sessionInput ? sessionInput.value : ''; }
+            function setSession(v) { if (sessionInput) sessionInput.value = v || ''; }
+
+            function userAvatar() {
+                var src = profileImg && profileImg.src ? profileImg.src : '';
+                return '<img src="' + src + '" alt="">';
+            }
+
+            var BOT_SVG = '<svg viewBox="0 0 43 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="15">'
+                + '<path d="M37.27 14.79C37.27 14.79 45.08 20.37 41.95 29.53 41.95 29.53 41.38 31.2 39.04 34.43L42.47 37.97C42.47 37.97 43.31 39.48 41.59 40H24.92C24.92 40 19.61 40.16 14.82 36.98 14.82 36.98 12.16 35.21 9.77 31.98L18.62 32.03C18.62 32.03 24.3 31.98 29.77 28.33 35.23 24.69 37.42 18.7 37.27 14.79Z" fill="#60A5FA"/>'
+                + '<path d="M34.51 12.81C32.27 1.04 19.35.05 19.35.05 8.31-.67 3.31 6.1 3.31 6.1-4.24 15.26 3.68 23.7 3.68 23.7 3.68 23.7 3 24.64.86 26.51-1.27 28.39 1.23 29.37 1.23 29.37H17.34C23.45 28.75 25.91 27.4 25.91 27.4 36.33 22.03 34.51 12.81 34.51 12.81Z" fill="#2563EB"/>'
+                + '</svg>';
+
+            function scrollBottom() {
+                if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight + 9999;
+            }
+
+            function showChat() {
+                if (welcomeEl) welcomeEl.style.display = 'none';
+                messagesEl.classList.add('visible');
+                messagesEl.style.display = 'flex';
+            }
+
+            function showWelcome() {
+                if (welcomeEl) welcomeEl.style.display = 'flex';
+                messagesEl.classList.remove('visible');
+                messagesEl.style.display = 'none';
+            }
+
+            function formatText(raw) {
+                var s = raw
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                // code blocks
+                s = s.replace(/```([\s\S]*?)```/g, function (_, code) {
+                    return '<pre><code>' + code.trim() + '</code></pre>';
+                });
+                // inline code
+                s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+                // bold
+                s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // italic
+                s = s.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                // ordered list
+                s = s.replace(/(?:^|\n)(\d+\.\s.+)/g, function (_, item) {
+                    return '\n<li>' + item.replace(/^\d+\.\s/, '') + '</li>';
+                });
+                // bullet list
+                s = s.replace(/(?:^|\n)[*\-]\s(.+)/g, '\n<li>$1</li>');
+                // wrap consecutive <li> in <ul>
+                s = s.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>');
+                // line breaks (skip inside pre)
+                s = s.replace(/<\/pre>\n?/g, '</pre>');
+                s = s.replace(/([^>])\n/g, '$1<br>');
+
+                return s;
+            }
+
+            function now() {
+                var d = new Date();
+                return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+            }
+
+            function appendMessage(role, text, avatarHtml) {
+                var row = document.createElement('div');
+                row.className = 'msg-row ' + role;
+
+                var avatarDiv = document.createElement('div');
+                if (role === 'user') {
+                    avatarDiv.className = 'msg-avatar';
+                } else {
+                    avatarDiv.className = 'bot-avatar';
+                }
+                avatarDiv.innerHTML = avatarHtml;
+
+                var body = document.createElement('div');
+                body.className = 'msg-body';
+
+                var bubble = document.createElement('div');
+                bubble.className = 'msg-bubble';
+
+                var timeEl = document.createElement('div');
+                timeEl.className = 'msg-time';
+                timeEl.textContent = now();
+
+                body.appendChild(bubble);
+                body.appendChild(timeEl);
+
+                if (role === 'user') {
+                    bubble.innerHTML = text.replace(/\n/g, '<br>');
+                    row.appendChild(body);
+                    row.appendChild(avatarDiv);
+                } else {
+                    bubble.innerHTML = '';
+                    row.appendChild(avatarDiv);
+                    row.appendChild(body);
+                }
+
+                messagesEl.appendChild(row);
+                scrollBottom();
+                return role === 'assistant' ? bubble : null;
+            }
+
+            function showTyping() {
+                var row = document.createElement('div');
+                row.className = 'typing-row';
+                row.id = 'typingRow';
+                row.innerHTML = '<div class="bot-avatar">' + BOT_SVG + '</div>'
+                    + '<div class="typing-bubble">'
+                    + '<div class="typing-dot"></div>'
+                    + '<div class="typing-dot"></div>'
+                    + '<div class="typing-dot"></div>'
+                    + '</div>';
+                messagesEl.appendChild(row);
+                scrollBottom();
+            }
+
+            function hideTyping() {
+                var el = document.getElementById('typingRow');
+                if (el) el.remove();
+            }
+
+            function typeBotMessage(bubbleEl, text, onDone) {
+                var i = 0;
+                var CHUNK = 4;
+                function tick() {
+                    if (i < text.length) {
+                        bubbleEl.textContent = text.substring(0, i + CHUNK);
+                        i += CHUNK;
+                        scrollBottom();
+                        setTimeout(tick, 12);
+                    } else {
+                        bubbleEl.innerHTML = formatText(text);
+                        scrollBottom();
+                        if (onDone) onDone();
                     }
-                },
-                scroll: function () {
-                    let elm = document.querySelectorAll('.js-scroll-to-end');
-                    if (elm) {
-                        elm.forEach(item => {
-                            let simpleBody = new SimpleBar(item);
-                            let height = item.querySelector('.simplebar-content > *').scrollHeight
-                            simpleBody.getScrollElement().scrollTop = height;
-                        })
-                    }
-                },
-                input: function () {
-                    let chatInput = document.querySelector('#tynChatInput');
-                    if (chatInput) {
-                        chatInput.focus()
-                    }
-                },
-                quick: function () {
-                    let elm = document.querySelectorAll('.js-toggle-quick');
-                    if (elm) {
-                        elm.forEach(item => {
-                            item.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                document.getElementById('tynQuickChat').classList.toggle('active')
-                            })
-                        })
-                    }
-                },
-                send: function () {
-                    let chatSend = document.querySelector('#tynChatSend');
-                    let chatInput = document.querySelector('#tynChatInput');
-                    let chatReply = document.querySelector('#tynReply');
-                    let chatBody = document.querySelector('#tynChatBody');
-                    let chatActions = `
-          <ul class="tyn-reply-tools">
-              <li>
-                  <button class="btn btn-icon btn-sm btn-transparent btn-pill" >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-emoji-smile-fill" viewBox="0 0 16 16">
-                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zM4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM10 8c-.552 0-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5S10.552 8 10 8z"></path>
-                    </svg>
-                  </button>
-              </li>
-              <li class="dropup-center">
-                  <button class="btn btn-icon btn-sm btn-transparent btn-pill" data-bs-toggle="dropdown">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-three-dots" viewBox="0 0 16 16">
-                        <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"></path>
-                    </svg>
-                  </button>
-                  <div class="dropdown-menu dropdown-menu-xxs">
-                      <ul class="tyn-list-links">
-                          <li>
-                              <a href="#">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
-                                      <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"></path>
-                                      <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"></path>
-                                  </svg>
-                                  <span>Edit</span>
-                              </a>
-                          </li>
-                          <li>
-                              <a href="#">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                                      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"></path>
-                                      <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"></path>
-                                  </svg>
-                                  <span>Delete</span>
-                              </a>
-                          </li>
-                      </ul>
-                  </div>
-              </li>
-          </ul>
-          `
+                }
+                tick();
+            }
 
-                    chatSend && chatSend.addEventListener("click", function (event) {
-                        event.preventDefault();
-                        let getInput = chatInput.innerText;
-                        let chatBubble = `
-            <div class="tyn-reply-bubble">
-                <div class="tyn-reply-text">
-                    ${getInput}
-                </div>
-                ${chatActions}
-            </div>
-            `;
-                        let outgoingWraper = `
-            <div class="tyn-reply-item outgoing">
-              <div class="tyn-reply-group"></div>
-            </div>
-            `
-                        if (!chatReply.querySelector('.tyn-reply-item').classList.contains('outgoing')) {
-                            getInput !== "" && chatReply.insertAdjacentHTML("afterbegin", outgoingWraper);
-                            getInput !== "" && chatReply.querySelector('.tyn-reply-item .tyn-reply-group').insertAdjacentHTML("beforeend", chatBubble);
-                        } else {
-                            getInput !== "" && chatReply.querySelector('.tyn-reply-item .tyn-reply-group').insertAdjacentHTML("beforeend", chatBubble);
-                        }
+            /* ---- session sidebar ---- */
+            function setActiveSession(id) {
+                if (!sessionList) return;
+                sessionList.querySelectorAll('.js-session-item').forEach(function (el) {
+                    el.classList.toggle('active', el.dataset.sessionId === String(id));
+                });
+            }
 
-                        chatInput.innerHTML = "";
-                        let simpleBody = SimpleBar.instances.get(document.querySelector('#tynChatBody'));
-                        let height = chatBody.querySelector('.simplebar-content > *').scrollHeight;
-                        simpleBody.getScrollElement().scrollTop = height;
-                    })
+            function addToSidebar(id, title) {
+                if (!sessionList) return;
 
-                    chatInput && chatInput.addEventListener("keypress", function (event) {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                            event.preventDefault()
-                            chatSend.click();
-                        }
+                // remove empty state
+                var empty = sessionList.querySelector('.sessions-empty, #sessionsEmpty');
+                if (empty) empty.remove();
+
+                // ensure group label
+                if (!sessionList.querySelector('.session-group-lbl')) {
+                    var lbl = document.createElement('p');
+                    lbl.className = 'session-group-lbl';
+                    lbl.textContent = 'Son Konuşmalar';
+                    sessionList.insertBefore(lbl, sessionList.firstChild);
+                }
+
+                // skip if already there
+                if (sessionList.querySelector('.js-session-item[data-session-id="' + id + '"]')) return;
+
+                var item = document.createElement('div');
+                item.className = 'session-item js-session-item active';
+                item.dataset.sessionId = String(id);
+                item.innerHTML = '<div class="session-icon">'
+                    + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">'
+                    + '<path d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1H2z"/>'
+                    + '</svg></div>'
+                    + '<span class="session-title">' + (title || 'Yeni konuşma') + '</span>'
+                    + '<button class="session-del js-session-delete" data-session-id="' + id + '" title="Sil" type="button">'
+                    + '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16">'
+                    + '<path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>'
+                    + '<path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>'
+                    + '</svg></button>';
+
+                // insert after the group label
+                var lbl = sessionList.querySelector('.session-group-lbl');
+                if (lbl && lbl.nextSibling) {
+                    sessionList.insertBefore(item, lbl.nextSibling);
+                } else {
+                    sessionList.appendChild(item);
+                }
+
+                bindItem(item);
+                bindDelete(item.querySelector('.js-session-delete'));
+            }
+
+            function loadSession(id) {
+                setSession(id);
+                setActiveSession(id);
+                // clear only message nodes (keep csrf + sessionInput)
+                Array.from(messagesEl.childNodes).forEach(function (node) {
+                    if (node.nodeType === 1 && node.tagName !== 'INPUT') {
+                        node.remove();
+                    }
+                });
+                showChat();
+
+                fetch('/api/sessions/' + id + '/messages/', {
+                    credentials: 'same-origin'
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    (data.messages || []).forEach(function (msg) {
+                        var node = appendMessage(
+                            msg.role,
+                            msg.content,
+                            msg.role === 'user' ? userAvatar() : BOT_SVG
+                        );
+                        if (node) node.innerHTML = formatText(msg.content);
                     });
-                }
-            },
-            item: function () {
-                let elm = document.querySelectorAll('.js-toggle-main');
-                if (elm) {
-                    elm.forEach(item => {
-                        item.addEventListener('click', (e) => {
-                            let isOption = e.target.closest('.tyn-aside-item-option');
-                            elm.forEach(item => {
-                                !isOption && item.classList.remove('active')
-                            })
-                            !isOption && item.classList.add('active');
-                            !isOption && document.getElementById('tynMain').classList.toggle('main-shown');
-                        })
-                    })
-                }
-            },
-            mute: function () {
-                let muteToggle = document.querySelector('.js-chat-mute-toggle');
-                let mute = document.querySelector('.js-chat-mute');
-                const muteOptionsModal = muteToggle && new bootstrap.Modal('#muteOptions', {})
-                if (muteToggle) {
-                    muteToggle.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        if (!muteToggle.classList.contains('chat-muted')) {
-                            muteOptionsModal.show();
-                        } else {
-                            muteToggle.classList.remove('chat-muted');
-                        }
-                    })
-                }
-                if (mute) {
-                    mute.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        muteOptionsModal.hide();
-                        muteToggle.classList.add('chat-muted');
-                    })
-                }
-            },
-            aside: function () {
-                let elm = document.querySelector('.js-toggle-chat-options');
-                if (elm) {
-                    let target = document.getElementById('tynChatAside');
-                    let chat = document.getElementById('tynMain');
-                    target.insertAdjacentHTML('beforebegin', `<div class="tyn-overlay js-toggle-chat-options" ></div>`);
-                    let overlay = document.querySelector('.tyn-overlay.js-toggle-chat-options');
+                    scrollBottom();
+                })
+                .catch(function (err) {
+                    console.error('[Asena] session load:', err);
+                    TynApp.Toast('Konuşma yüklenemedi', 'error');
+                });
+            }
 
-                    function asideshow() {
-                        elm.classList.add('active');
-                        target.classList.add('show-aside');
-                        chat.classList.add('aside-shown');
-                        if (TynApp.Page.Width < TynApp.Breakpoints.xl) {
-                            overlay.classList.add('active');
-                        }
-                    }
+            function bindItem(item) {
+                item.addEventListener('click', function (e) {
+                    if (e.target.closest('.js-session-delete')) return;
+                    loadSession(item.dataset.sessionId);
+                });
+            }
 
-                    function asidehide() {
-                        elm.classList.remove('active');
-                        target.classList.remove('show-aside');
-                        chat.classList.remove('aside-shown');
-                        if (TynApp.Page.Width < TynApp.Breakpoints.xl) {
-                            overlay.classList.remove('active');
-                        }
-                    }
+            function bindDelete(btn) {
+                if (!btn) return;
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var id = btn.dataset.sessionId;
+                    if (!id) return;
+                    if (!window.confirm('Bu konuşmayı silmek istediğinize emin misiniz?')) return;
 
-                    // if (TynApp.Page.Width > TynApp.Breakpoints.xl) {
-                    //     asideshow();
-                    // }
-
-                    elm.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        if (!chat.classList.contains('aside-shown')) {
-                            asideshow();
-                        } else {
-                            asidehide()
-                        }
-                    })
-
-                    overlay.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        asidehide();
-                    })
-
-                    const chatObserver = new ResizeObserver((entries) => {
-                        for (const entry of entries) {
-                            if (entry.contentRect.width > TynApp.Breakpoints.xl) {
-                                overlay.classList.remove('active');
-                                chat.classList.remove('aside-collapsed');
-                            } else {
-                                setTimeout(() => {
-                                    chat.classList.add('aside-collapsed');
-                                }, 1000);
-                            }
-
-                            if (entry.contentRect.width < TynApp.Breakpoints.xl) {
-                                if (!chat.classList.contains('aside-collapsed')) {
-                                    asidehide();
-                                }
-
-                            }
-                        }
-                    });
-
-                    chatObserver.observe(TynApp.Body);
-                }
-            },
-            botsend: function (position, text) {
-                let chatSend = document.querySelector('#tynBotSend');
-                let chatInput = document.querySelector('#tynBotInput');
-                let chatReply = document.querySelector('#tynBotReply');
-                let chatBody = document.querySelector('#tynBotBody');
-                let chatImage = document.querySelector('#profileImage');
-                let welcome_content = document.getElementById("welcome_content");
-                let chat_content = document.getElementById("chat_content");
-                let csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                let csrfToken = csrfInput ? csrfInput.value : '';
-                let sessionInput = document.getElementById('currentSessionId');
-                let chatRoot = document.getElementById('asenaChatRoot');
-                let apiBaseUrl = (chatRoot && chatRoot.dataset.apiUrl)
-                    ? chatRoot.dataset.apiUrl
-                    : window.location.origin;
-
-                function apiUrl(path) {
-                    return apiBaseUrl + path;
-                }
-                let isBotWriting = false;
-
-                function getSessionId() {
-                    return sessionInput ? sessionInput.value : '';
-                }
-
-                function setSessionId(sessionId) {
-                    if (sessionInput) {
-                        sessionInput.value = sessionId || '';
-                    }
-                }
-
-                function getUserAvatarHtml() {
-                    let src = chatImage && chatImage.src ? chatImage.src : '';
-                    return `<img src="${src}" alt="">`;
-                }
-
-                function scroll() {
-                    if (!chatBody) {
-                        return;
-                    }
-                    let simpleBodyEl = document.querySelector('#tynBotBody');
-                    if (!simpleBodyEl || typeof SimpleBar === 'undefined') {
-                        return;
-                    }
-                    let simpleBody = SimpleBar.instances.get(simpleBodyEl);
-                    if (!simpleBody) {
-                        return;
-                    }
-                    let content = chatBody.querySelector('.simplebar-content > *');
-                    if (!content) {
-                        return;
-                    }
-                    let height = content.scrollHeight;
-                    simpleBody.getScrollElement().scrollTop = height;
-                }
-
-                function getBotAvatarHtml() {
-                    let botAvatar = document.querySelector('.tyn-appbar .tyn-media img');
-                    let src = botAvatar ? botAvatar.src : '';
-                    return `<img src="${src}" alt="">`;
-                }
-
-                console.log('[Asena] API:', apiBaseUrl);
-
-                function sendChatRequest(userText, onSuccess, onError) {
-                    let body = new URLSearchParams();
-                    body.append('question', userText);
-                    body.append('session_id', getSessionId());
-
-                    console.log('[Asena] send:', userText);
-
-                    fetch(apiUrl('/api/asena/'), {
+                    fetch('/api/sessions/' + id + '/delete/', {
                         method: 'POST',
                         credentials: 'same-origin',
-                        headers: {
-                            'X-CSRFToken': csrfToken,
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: body.toString(),
-                    }).then(function (response) {
-                        return response.json().then(function (data) {
-                            if (!response.ok) {
-                                throw {status: response.status, data: data};
-                            }
-                            onSuccess(data);
-                        });
-                    }).catch(function (err) {
-                        onError(err);
-                    });
-                }
+                        headers: { 'X-CSRFToken': csrf }
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function () {
+                        var item = sessionList.querySelector('.js-session-item[data-session-id="' + id + '"]');
+                        if (item) item.remove();
 
-                function appendMessage(role, messageText, avatarHtml) {
-                    let qaItem = document.createElement("div");
-                    qaItem.className = "tyn-qa-item";
-
-                    let qaAvatar = document.createElement("div");
-                    qaAvatar.className = "tyn-qa-avatar";
-
-                    let avatarImg = document.createElement("div");
-                    avatarImg.className = "tyn-media tyn-size-md";
-                    avatarImg.innerHTML = avatarHtml;
-
-                    qaAvatar.appendChild(avatarImg);
-
-                    let qaMessage = document.createElement("div");
-                    qaMessage.className = "tyn-qa-message tyn-text-block";
-                    qaItem.appendChild(qaAvatar);
-                    qaItem.appendChild(qaMessage);
-                    chatReply.appendChild(qaItem);
-
-                    if (role === 'user') {
-                        qaMessage.innerHTML = messageText.replace(/\n/g, "<br>");
-                        return null;
-                    }
-
-                    return qaMessage;
-                }
-
-                function typeBotMessage(botQaMessage, botMessage, onComplete) {
-                    let currentIndex = 0;
-
-                    function writeMessage() {
-                        if (currentIndex < botMessage.length) {
-                            botQaMessage.textContent += botMessage[currentIndex];
-                            currentIndex++;
-                            setTimeout(writeMessage, 15);
-                        } else if (onComplete) {
-                            onComplete();
+                        var remaining = sessionList.querySelectorAll('.js-session-item');
+                        if (remaining.length === 0) {
+                            var lbl = sessionList.querySelector('.session-group-lbl');
+                            if (lbl) lbl.remove();
+                            var empty = document.createElement('div');
+                            empty.className = 'sessions-empty';
+                            empty.id = 'sessionsEmpty';
+                            empty.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style="display:block;margin:0 auto 0.5rem;opacity:0.3"><path d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1H2z"/></svg>Henüz konuşma yok.';
+                            sessionList.appendChild(empty);
                         }
-                    }
 
-                    writeMessage();
-                }
-
-                chatSend && chatSend.addEventListener("click", function (event) {
-                    event.preventDefault();
-                    userSendMessage();
-                });
-
-                chatInput && chatInput.addEventListener("keypress", function (event) {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        userSendMessage();
-                    }
-                });
-
-                let newSessionBtn = document.getElementById('newSessionBtn');
-                newSessionBtn && newSessionBtn.addEventListener('click', function () {
-                    setSessionId('');
-                    chatReply.innerHTML = '';
-                    welcome_content.style.display = "block";
-                    chat_content.style.display = "none";
-                });
-
-                document.querySelectorAll('.js-session-item').forEach(function (item) {
-                    item.addEventListener('click', function () {
-                        let sessionId = item.dataset.sessionId;
-                        if (!sessionId) {
-                            return;
-                        }
-                        setSessionId(sessionId);
-                        chatReply.innerHTML = '';
-                        welcome_content.style.display = "none";
-                        chat_content.style.display = "flex";
-
-                        fetch(apiUrl("/api/sessions/" + sessionId + "/messages/"), {
-                            method: 'GET',
-                            credentials: 'same-origin',
-                        }).then(function (response) {
-                            return response.json();
-                        }).then(function (data) {
-                            data.messages.forEach(function (message) {
-                                if (message.role === 'user') {
-                                    appendMessage('user', message.content, getUserAvatarHtml());
-                                } else {
-                                    let botNode = appendMessage('assistant', message.content, getBotAvatarHtml());
-                                    if (botNode) {
-                                        botNode.textContent = message.content;
-                                    }
-                                }
+                        if (getSession() === String(id)) {
+                            setSession('');
+                            Array.from(messagesEl.childNodes).forEach(function (node) {
+                                if (node.nodeType === 1 && node.tagName !== 'INPUT') node.remove();
                             });
-                            scroll();
-                        }).catch(function (err) {
-                            console.error('[Asena] session load error:', err);
-                        });
-                    });
-                });
-
-                function toggleUserSendButtonState(disabled) {
-                    let userSend = document.getElementById("tynBotSend");
-                    userSend.disabled = disabled;
-                }
-
-                function userSendMessage() {
-                    if (isBotWriting) {
-                        return;
-                    }
-                    if (chatInput.innerText === "") {
-                        return;
-                    }
-
-                    isBotWriting = true;
-                    welcome_content.style.display = "none";
-                    chat_content.style.display = "flex";
-                    let userText = chatInput.innerText;
-                    toggleUserSendButtonState(true);
-                    appendMessage('user', userText, getUserAvatarHtml());
-                    toggleUserSendButtonState(false);
-                    botSendMessage(userText);
-                }
-
-                function botSendMessage(userText) {
-                    chatInput.innerHTML = "";
-
-                    sendChatRequest(userText, function (jsonData) {
-                        let botMessage = jsonData.content;
-                        if (jsonData.session_id) {
-                            setSessionId(jsonData.session_id);
+                            showWelcome();
                         }
-                        scroll();
-                        let botQaMessage = appendMessage('assistant', botMessage, getBotAvatarHtml());
-                        typeBotMessage(botQaMessage, botMessage, function () {
-                            isBotWriting = false;
-                        });
-                    }, function (err) {
-                        let botMessage = "Şu anda geçici olarak cevap veremiyorum, lütfen daha sonra tekrar deneyiniz.";
-                        if (err.data && err.data.error) {
-                            botMessage = err.data.error;
-                        } else if (err.status === 401) {
-                            botMessage = "Oturumunuz sona ermiş. Lütfen tekrar giriş yapın.";
-                        }
-                        console.error("[Asena] API error:", err);
-                        let botQaMessage = appendMessage('assistant', '', getBotAvatarHtml());
-                        scroll();
-                        typeBotMessage(botQaMessage, botMessage, function () {
-                            isBotWriting = false;
-                        });
-                    });
-                }
-            }
-        }
-
-        TynApp.Plugins = {
-            lightbox: function () {
-                const lightbox = GLightbox({
-                    touchNavigation: true,
-                    loop: true,
-                    autoplayVideos: true
-                });
-            },
-            slider: {
-                stories: function () {
-                    let storiesThumb = document.querySelector('.tyn-stories-thumb');
-                    let storiesSlider = document.querySelector('.tyn-stories-slider');
-                    let autoplayDelay = 5000;
-                    storiesSlider && storiesSlider.querySelector('.swiper-pagination').style.setProperty("--slide-delay", `${autoplayDelay}ms`);
-                    const thumbCount = storiesThumb && storiesThumb.querySelectorAll('.swiper-slide').length;
-                    const thumb = new Swiper('.tyn-stories-thumb', {
-                        slidesPerView: 2,
-                        freeMode: true,
-                        cssMode: true,
-                        spaceBetween: 0,
-                        grid: {
-                            rows: thumbCount / 2,
-                        },
-                    });
-                    const main = new Swiper('.tyn-stories-slider', {
-                        speed: 400,
-                        spaceBetween: 0,
-                        slidesPerView: 1,
-                        effect: "fade",
-                        grabCursor: true,
-                        autoplay: {
-                            delay: autoplayDelay,
-                            disableOnInteraction: false,
-                            waitForTransition: false
-                        },
-                        navigation: {
-                            nextEl: ".swiper-button-next",
-                            prevEl: ".swiper-button-prev",
-                        },
-                        thumbs: {
-                            swiper: thumb,
-                        },
-                        pagination: {
-                            el: ".swiper-pagination",
-                            clickable: true,
-                        },
-                    });
-                },
-            },
-            clipboard: function () {
-                let clipboardTrigger = document.querySelectorAll('.tyn-copy');
-                let options = {
-                    tooltip: {
-                        init: 'Copy',
-                        success: 'Copied',
-                    }
-                }
-                clipboardTrigger.forEach(item => {
-                    //init clipboard
-                    let clipboard = new ClipboardJS(item);
-                    //set markup
-                    let initMarkup = `${options.tooltip.init}`;
-                    let successMarkup = `${options.tooltip.success}`;
-                    item.innerHTML = initMarkup;
-                    //on-sucess
-                    clipboard.on("success", function (e) {
-                        let target = e.trigger;
-                        target.innerHTML = successMarkup;
-                        setTimeout(function () {
-                            target.innerHTML = initMarkup;
-                        }, 1000)
+                        TynApp.Toast('Konuşma silindi', 'success');
+                    })
+                    .catch(function (err) {
+                        console.error('[Asena] delete:', err);
+                        TynApp.Toast('Silme başarısız', 'error');
                     });
                 });
             }
-        }
 
-        TynApp.Theme = function () {
-            // Set Theme Function
-            function setMode(currentMode) {
-                localStorage.setItem('connectme-html', currentMode);
-                document.documentElement.setAttribute("data-bs-theme", currentMode);
+            // bind existing items
+            if (sessionList) {
+                sessionList.querySelectorAll('.js-session-item').forEach(bindItem);
+                sessionList.querySelectorAll('.js-session-delete').forEach(bindDelete);
             }
 
-            // Set Theme On Load
-            setMode(localStorage.getItem('connectme-html'));
+            /* ---- new session ---- */
+            if (newSessionBtn) {
+                newSessionBtn.addEventListener('click', function () {
+                    setSession('');
+                    Array.from(messagesEl.childNodes).forEach(function (node) {
+                        if (node.nodeType === 1 && node.tagName !== 'INPUT') node.remove();
+                    });
+                    showWelcome();
+                    if (sessionList) sessionList.querySelectorAll('.js-session-item').forEach(function (el) {
+                        el.classList.remove('active');
+                    });
+                    if (inputEl) inputEl.focus();
+                });
+            }
 
-            var themeModeToggle = document.getElementsByName('themeMode');
-            themeModeToggle.forEach((item) => {
-                (item.value == localStorage.getItem('connectme-html')) && (item.checked = true);
-                item.addEventListener('change', function () {
-                    if (item.checked && item.value) {
-                        setMode(item.value);
-                    }
+            /* ---- send ---- */
+            function sendMessage() {
+                if (isBusy) return;
+                var text = inputEl.innerText.trim();
+                if (!text) return;
+
+                isBusy = true;
+                sendBtn.disabled = true;
+                inputEl.innerHTML = '';
+                showChat();
+
+                appendMessage('user', text, userAvatar());
+                showTyping();
+
+                var body = new URLSearchParams();
+                body.append('question', text);
+                body.append('session_id', getSession());
+
+                fetch('/api/asena/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-CSRFToken': csrf,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: body.toString()
                 })
-            })
-        }
+                .then(function (r) {
+                    return r.json().then(function (data) {
+                        return { ok: r.ok, status: r.status, data: data };
+                    });
+                })
+                .then(function (res) {
+                    hideTyping();
+                    sendBtn.disabled = false;
 
-        TynApp.Custom.init = function () {
-            TynApp.Chat.reply.search();
-            TynApp.Chat.reply.scroll();
-            TynApp.Chat.reply.input();
-            TynApp.Chat.reply.quick();
-            TynApp.Chat.reply.send();
-            TynApp.Chat.item();
-            TynApp.Chat.mute();
-            TynApp.Chat.aside();
-            TynApp.Chat.botsend();
-            TynApp.ActiveLink('.tyn-appbar-link', ['active', 'current-page']);
-            TynApp.Appbar();
-            TynApp.Theme();
-        }
+                    if (!res.ok) {
+                        var errMsg = 'Şu anda cevap veremiyorum, lütfen tekrar deneyin.';
+                        if (res.data && res.data.error) errMsg = res.data.error;
+                        if (res.status === 401) errMsg = 'Oturumunuz sona ermiş. Lütfen tekrar giriş yapın.';
+                        var errNode = appendMessage('assistant', '', BOT_SVG);
+                        typeBotMessage(errNode, errMsg, function () { isBusy = false; });
+                        return;
+                    }
 
-        TynApp.Plugins.init = function () {
-            TynApp.Plugins.lightbox();
-            TynApp.Plugins.slider.stories();
-            TynApp.Plugins.clipboard();
-        }
+                    if (res.data.session_id) {
+                        var wasNew = !getSession();
+                        setSession(res.data.session_id);
+                        if (wasNew) {
+                            var title = (res.data.title || text).substring(0, 45);
+                            addToSidebar(res.data.session_id, title);
+                            setActiveSession(res.data.session_id);
+                        }
+                    }
 
-        TynApp.init = function () {
+                    var botNode = appendMessage('assistant', '', BOT_SVG);
+                    typeBotMessage(botNode, res.data.content || '', function () { isBusy = false; });
+                })
+                .catch(function (err) {
+                    hideTyping();
+                    sendBtn.disabled = false;
+                    console.error('[Asena] fetch error:', err);
+                    var errNode = appendMessage('assistant', '', BOT_SVG);
+                    typeBotMessage(errNode, 'Bağlantı hatası. İnternet bağlantınızı kontrol edin.', function () { isBusy = false; });
+                });
+            }
+
+            sendBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                sendMessage();
+            });
+
+            inputEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Focus input on load
+            setTimeout(function () { inputEl.focus(); }, 100);
+        }
+    };
+
+    /* ==============================================
+       INIT
+    =============================================== */
+    TynApp.Custom = TynApp.Custom || {};
+
+    TynApp.Custom.init = function () {
+        TynApp.Theme();
+        TynApp.UserMenu();
+        TynApp.MobileSidebar();
+        TynApp.Chat.botsend();
+    };
+
+    // Plugins stub (keep for bundle.js compatibility)
+    TynApp.Plugins = TynApp.Plugins || {};
+    TynApp.Plugins.init = function () {};
+
+    TynApp.init = function () {
+        if (typeof TynApp.Load === 'function') {
             TynApp.Load(TynApp.Custom.init);
-            TynApp.Load(TynApp.Plugins.init);
-            TynApp.Resize(TynApp.Appbar);
+        } else {
+            document.addEventListener('DOMContentLoaded', TynApp.Custom.init);
         }
+    };
 
-        TynApp.init();
+    TynApp.init();
 
-        return TynApp;
-    }
-)
-(TynApp);
-
-
-//end-js
+    return TynApp;
+})(window.TynApp || (window.TynApp = {}));
