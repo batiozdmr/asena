@@ -25,6 +25,46 @@
     };
 
     /* ==============================================
+       CONFIRM MODAL
+    =============================================== */
+    TynApp.Confirm = function (title, desc) {
+        return new Promise(function (resolve) {
+            var backdrop = document.getElementById('deleteModal');
+            var titleEl  = document.getElementById('deleteModalTitle');
+            var descEl   = document.getElementById('deleteModalDesc');
+            var cancelBtn  = document.getElementById('deleteModalCancel');
+            var confirmBtn = document.getElementById('deleteModalConfirm');
+
+            if (!backdrop) { resolve(window.confirm(desc || title)); return; }
+
+            if (titleEl) titleEl.textContent = title || 'Emin misiniz?';
+            if (descEl)  descEl.textContent  = desc  || '';
+
+            function close(result) {
+                backdrop.classList.remove('open');
+                cancelBtn.removeEventListener('click', onCancel);
+                confirmBtn.removeEventListener('click', onConfirm);
+                backdrop.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onEsc);
+                resolve(result);
+            }
+
+            function onCancel()   { close(false); }
+            function onConfirm()  { close(true);  }
+            function onBackdrop(e) { if (e.target === backdrop) close(false); }
+            function onEsc(e)     { if (e.key === 'Escape') close(false); }
+
+            cancelBtn.addEventListener('click', onCancel);
+            confirmBtn.addEventListener('click', onConfirm);
+            backdrop.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onEsc);
+
+            backdrop.classList.add('open');
+            confirmBtn.focus();
+        });
+    };
+
+    /* ==============================================
        TOAST
     =============================================== */
     TynApp.Toast = function (msg, type) {
@@ -69,9 +109,8 @@
 
         if (logoutBtn && logoutForm) {
             logoutBtn.addEventListener('click', function () {
-                if (window.confirm('Çıkış yapmak istediğinize emin misiniz?')) {
-                    logoutForm.submit();
-                }
+                TynApp.Confirm('Çıkış Yap', 'Oturumunuzu kapatmak istediğinize emin misiniz?')
+                    .then(function (ok) { if (ok) logoutForm.submit(); });
             });
         }
     };
@@ -359,7 +398,12 @@
                     e.stopPropagation();
                     var id = btn.dataset.sessionId;
                     if (!id) return;
-                    if (!window.confirm('Bu konuşmayı silmek istediğinize emin misiniz?')) return;
+
+                    TynApp.Confirm(
+                        'Konuşmayı Sil',
+                        'Bu konuşma kalıcı olarak silinecek. Bu işlem geri alınamaz.'
+                    ).then(function (confirmed) {
+                        if (!confirmed) return;
 
                     fetch('/api/sessions/' + id + '/delete/', {
                         method: 'POST',
@@ -395,6 +439,7 @@
                         console.error('[Asena] delete:', err);
                         TynApp.Toast('Silme başarısız', 'error');
                     });
+                    }); // .then(confirmed)
                 });
             }
 
